@@ -1,0 +1,7 @@
+*.pkl
+*.feather
+.ipynb_checkpoints/
+.vscode/
+.kaggle/
+data/
+__pycache__/predicting-molecular-properties/
