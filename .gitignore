@@ -5,3 +5,4 @@
 .kaggle/
 data/
 __pycache__/predicting-molecular-properties/
+graph_cnn/build/champs_larger_mpnn5a/__pycache__/

@@ -787,7 +787,7 @@ def mol_from_axyz(symbol, xyz):
 # check #################################################################
 def load_csv():
 
-    DATA_DIR = '/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/predicting-molecular-properties/data'
+    DATA_DIR = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data'
 
     # structure
     df_structure = pd.read_csv(DATA_DIR + '/structures.csv')
@@ -813,7 +813,7 @@ def load_csv():
 
 def run_check_0():
     xyz_dir = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/'
-               'structured-data/predicting-molecular-properties/data/structures/xyz')
+               'structured-data/Predicting-Molecular-Properties/data/structures/xyz')
     name = [
         'dsgdb9nsd_000001',
         'dsgdb9nsd_000002',
@@ -869,7 +869,7 @@ def do_one(p):
 
 # ----
 def run_convert_to_graph():
-    graph_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/predicting-molecular-properties/data/graphs/graph1'
+    graph_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/graphs/graph1'
     os.makedirs(graph_dir, exist_ok=True)
 
     gb_structure, gb_scalar_coupling = load_csv()
@@ -890,8 +890,8 @@ def run_convert_to_graph():
 
 
 def run_make_split(num_valid, coupling_type=None):
-    split_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/predicting-molecular-properties/data/split'
-    csv_file = '/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/predicting-molecular-properties/data/train.csv'
+    split_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/split'
+    csv_file = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/train.csv'
 
     df = pd.read_csv(csv_file)
     

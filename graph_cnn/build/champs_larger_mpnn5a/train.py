@@ -68,7 +68,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
               checkpoint_iter=-1, split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy'):
 
     out_dir = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/'
-               'structured-data/predicting-molecular-properties/graph_cnn/data/results/zzz')
+               'structured-data/Predicting-Molecular-Properties/graph_cnn/data/results/zzz')
 
     # setup  -----------------------------------------------------------------------------
     os.makedirs(out_dir + '/checkpoint', exist_ok=True)
@@ -297,13 +297,13 @@ if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
     huber_loss = torch.nn.SmoothL1Loss()
-    checkpoint_path = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/'
-                       'predicting-molecular-properties/graph_cnn/data/results/zzz/checkpoint/00085000_model.pth')
+    checkpoint_path = ('/run/media/windisk/Users/chrun/Documents/Projects/'
+                       'Predicting-Molecular-Properties/graph_cnn/data/results/zzz/checkpoint/00125000_model.pth')
 
     #run_train(lr=0.0016, loss_func=log_l1_loss, num_iters=260*1000, batch_size=20, 
     #          initial_checkpoint=None, checkpoint_iter=-1) #checkpoint_path, 155000  
 
-    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=200*1000, batch_size=10, 
-              initial_checkpoint=checkpoint_path, checkpoint_iter=85000) #checkpoint_path, 155000  
+    run_train(lr=0.0005, loss_func=log_l1_loss, num_iters=300*1000, batch_size=10, 
+              initial_checkpoint=checkpoint_path, checkpoint_iter=125000) #checkpoint_path, 155000  
 
     print('\nsuccess!')

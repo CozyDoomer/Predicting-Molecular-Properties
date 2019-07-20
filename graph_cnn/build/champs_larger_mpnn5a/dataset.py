@@ -18,8 +18,7 @@ EDGE_DIM = 8   #  7 9 6 11
 NODE_DIM = 93  # 13
 NUM_TARGET = 8
 
-DATA_DIR = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/'
-            'structured-data/predicting-molecular-properties/data')
+DATA_DIR = ('/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data')
 
 
 class ChampsDataset(Dataset):

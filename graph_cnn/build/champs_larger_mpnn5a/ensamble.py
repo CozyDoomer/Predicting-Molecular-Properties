@@ -3,11 +3,11 @@ import numpy as np
 import pandas as pd
 
 def run_ensamble():
-    ensemble_file = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/'
-                     'predicting-molecular-properties/graph_cnn/data/subs/blends/submit-ensemble-larger-00.csv')
+    ensemble_file = ('/run/media/windisk/Users/chrun/Documents/Projects/'
+                     'Predicting-Molecular-Properties/graph_cnn/data/subs/blends/submit-ensemble-larger-00.csv')
 
-    df_test = pd.read_csv(('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/structured-data/'
-                           'predicting-molecular-properties/data/test.csv'))                
+    df_test = pd.read_csv(('/run/media/windisk/Users/chrun/Documents/Projects/'
+                           'Predicting-Molecular-Properties/data/test.csv'))                
 
     df_test = df_test.sort_values(by=['id'])
 
