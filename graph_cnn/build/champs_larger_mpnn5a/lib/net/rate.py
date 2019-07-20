@@ -258,7 +258,6 @@ class NullScheduler():
 def adjust_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-        param_group['max_lr'] = lr
 
 def adjust_max_learning_rate(optimizer, max_lr):
     for param_group in optimizer.param_groups:

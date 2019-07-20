@@ -229,7 +229,8 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             # learning rate scheduler -------------
             # if lr < 0:
             #    break
-            adjust_max_learning_rate(optimizer, lr)
+            adjust_learning_rate(optimizer, lr)
+            #adjust_max_learning_rate(optimizer, lr) # for OneCycleLR scheduler
             lr = get_learning_rate(optimizer)
 
             # one iteration update  -------------
