@@ -98,14 +98,14 @@ class LSTMCell(nn.Module):
         Initialize parameters following the way proposed in the paper.
         """
 
-        init.orthogonal(self.weight_ih.data)
+        init.orthogonal_(self.weight_ih.data)
         weight_hh_data = torch.eye(self.hidden_size)
         weight_hh_data = weight_hh_data.repeat(1, 4)
         with torch.no_grad():
             self.weight_hh.set_(weight_hh_data)
         # The bias is just set to zero vectors.
         if self.use_bias:
-            init.constant(self.bias.data, val=0)
+            init.constant_(self.bias.data, val=0)
 
     def forward(self, input_, hx):
         """
@@ -181,7 +181,7 @@ class BNLSTMCell(nn.Module):
         """
 
         # The input-to-hidden weight matrix is initialized orthogonally.
-        init.orthogonal(self.weight_ih.data)
+        init.orthogonal_(self.weight_ih.data)
         # The hidden-to-hidden weight matrix is initialized as an identity
         # matrix.
         weight_hh_data = torch.eye(self.hidden_size)
@@ -189,7 +189,7 @@ class BNLSTMCell(nn.Module):
         with torch.no_grad():
             self.weight_hh.set_(weight_hh_data)
         # The bias is just set to zero vectors.
-        init.constant(self.bias.data, val=0)
+        init.constant_(self.bias.data, val=0)
         # Initialization of BN parameters.
         self.bn_ih.reset_parameters()
         self.bn_hh.reset_parameters()

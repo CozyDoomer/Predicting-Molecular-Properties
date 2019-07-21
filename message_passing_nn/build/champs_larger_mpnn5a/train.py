@@ -1,5 +1,6 @@
 from dataset import *
 from model import *
+from losses import *
 from common import *
 import os
 import gc
@@ -64,18 +65,15 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
     return valid_loss
 
 
-def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None,
-              checkpoint_iter=-1, split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy'):
-
-    out_dir = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/'
-               'structured-data/Predicting-Molecular-Properties/graph_cnn/data/results/zzz')
-
+def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None, 
+              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
+              out_dir='data/results/zzz', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN' '2JHN', '3JHN', '2JHH', '3JHH']):
     # setup  -----------------------------------------------------------------------------
+    os.makedirs(out_dir, exist_ok=True)
     os.makedirs(out_dir + '/checkpoint', exist_ok=True)
     os.makedirs(out_dir + '/train', exist_ok=True)
     os.makedirs(out_dir + '/backup', exist_ok=True)
-    backup_project_as_zip(PROJECT_PATH, out_dir +
-                          '/backup/code.train.%s.zip' % IDENTIFIER)
+    backup_project_as_zip(PROJECT_PATH, out_dir + '/backup/code.train.%s.zip' % IDENTIFIER)
 
     log = Logger()
     log.open(out_dir+'/log.train.txt', mode='a')
@@ -95,11 +93,12 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     train_dataset = ChampsDataset(
         csv='train',
         mode='train',
-        split=split_train
+        split=split_train,
+        coupling_types=coupling_types
     )
     train_loader = DataLoader(
         train_dataset,
-        #sampler     = SequentialSampler(train_dataset),
+        #sampler=SequentialSampler(train_dataset),
         sampler=RandomSampler(train_dataset),
         batch_size=batch_size,
         drop_last=True,
@@ -114,10 +113,11 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
         # split='debug_split_by_mol.1000.npy',
         split=split_valid,
         augment=None,
+        coupling_types=coupling_types
     )
     valid_loader = DataLoader(
         valid_dataset,
-        #sampler     = SequentialSampler(valid_dataset),
+        #sampler=SequentialSampler(valid_dataset),
         sampler=RandomSampler(valid_dataset),
         batch_size=batch_size,
         drop_last=False,
@@ -139,16 +139,17 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
     log.write('\tinitial_checkpoint = %s\n' % initial_checkpoint)
     if initial_checkpoint is not None:
+        checkpoint_iter = int(initial_checkpoint.split('/')[-1][:-10])
         net.load_state_dict(torch.load(initial_checkpoint,
                                        map_location=lambda storage, loc: storage))
+    else:
+        checkpoint_iter = -1
 
     log.write('%s\n' % (type(net)))
+    log.write('Using large encoder for GraphConv: %s\n' % (net.use_large_encoder))
     log.write('\n')
 
-    # pretrain_file = '/root/share/project/kaggle/2019/champs_scalar/result/backup/00370000_model.pth'
-    # load_pretrain(net,pretrain_file)
-
-    # optimiser ----------------------------------
+    # optimizer ----------------------------------
     # freeze
     #     for p in net.encoder1.parameters(): p.requires_grad = False
 
@@ -156,29 +157,25 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     # -----------------------------------------------
 
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=lr)
-    #optimizer = torch.optim.RMSprop(net.parameters(), lr =0.0005, alpha = 0.95)
+    #optimizer = torch.optim.RMSprop(net.parameters(), lr=0.0005, alpha=0.95)
     #optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=scheduler(0), momentum=0.9, weight_decay=0.0001)
 
     scheduler = NullScheduler(lr=lr)
-    #scheduler = StepScheduler([ (checkpoint_iter,       0.0001),  
-    #                            (checkpoint_iter+2500,  0.00015),  
-    #                            (checkpoint_iter+20000, 0.0002),  
-    #                            (checkpoint_iter+40000, 0.00025),  
-    #                            (checkpoint_iter+60000, 0.0002), 
-    #                            (checkpoint_iter+80000, 0.00015), 
-    #                            (checkpoint_iter+100000,0.0001), 
-    #                            (checkpoint_iter+125000,0.00008)])
-    #scheduler = OneCycleLR(optimizer, max_lr=lr, div_factor=20, pct_start=0.1, total_steps=num_iters)
+    #scheduler = StepScheduler([(checkpoint_iter,       0.0001),  
+    #                           (checkpoint_iter+2500,  0.00008),  
+    #                           (checkpoint_iter+20000, 0.00006),  
+    #                           (checkpoint_iter+40000, 0.00004),  
+    #                           (checkpoint_iter+60000, 0.00002), 
+    #                           (checkpoint_iter+80000, 0.00001)])
+    #scheduler = OneCycleLR(optimizer, max_lr=lr, div_factor=25, pct_start=0.3, total_steps=num_iters)
 
     iter_accum = 1
     iter_smooth = 50
     iter_log = 500
     iter_valid = 500
-    iter_save = [0, num_iters-1]\
-        + list(range(0, num_iters, 2500))  # 1*1000
+    iter_save = [0, num_iters-1] + list(range(0, num_iters, 2500))  # 1000
     start_iter = 0
     start_epoch = 0
-    #lr = 0
     if initial_checkpoint is not None:
         initial_optimizer = initial_checkpoint.replace(
             '_model.pth', '_optimizer.pth')
@@ -227,8 +224,10 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
 
             # learning rate scheduler -------------
-            # if lr < 0:
-            #    break
+            if lr < 0:
+                log.write('Negative learning rate!\n')
+                break
+
             adjust_learning_rate(optimizer, lr)
             #adjust_max_learning_rate(optimizer, lr) # for OneCycleLR scheduler
             lr = get_learning_rate(optimizer)
@@ -297,14 +296,15 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    huber_loss = torch.nn.SmoothL1Loss()
-    checkpoint_path = ('/run/media/windisk/Users/chrun/Documents/Projects/'
-                       'Predicting-Molecular-Properties/graph_cnn/data/results/zzz/checkpoint/00125000_model.pth')
+    output_directory = get_path() + 'data/results/zzz'
+    checkpoint_path = get_path() + 'data/results/zzz/checkpoint/00000000_model.pth'
 
-    #run_train(lr=0.0016, loss_func=log_l1_loss, num_iters=260*1000, batch_size=20, 
-    #          initial_checkpoint=None, checkpoint_iter=-1) #checkpoint_path, 155000  
+    #TODO: try training per coupling type / groups 
+    #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
+    coupling_types_to_be_used = ['1JHC', '2JHC', '3JHC']
 
-    run_train(lr=0.0005, loss_func=log_l1_loss, num_iters=300*1000, batch_size=10, 
-              initial_checkpoint=checkpoint_path, checkpoint_iter=125000) #checkpoint_path, 155000  
+    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=200*1000, batch_size=16, coupling_types=coupling_types_to_be_used, 
+              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
+              initial_checkpoint=checkpoint_path, out_dir=output_directory)
 
     print('\nsuccess!')

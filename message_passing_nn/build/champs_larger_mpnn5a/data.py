@@ -1,17 +1,15 @@
-from sklearn import preprocessing
 import scipy
-from rdkit.Chem.rdmolops import SanitizeFlags
-from common import *
-from collections import defaultdict
-
+from sklearn import preprocessing
 import networkx as nx
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem import ChemicalFeatures
-from rdkit import RDConfig
+from collections import defaultdict
+from common import *
 
+from rdkit import Chem, RDConfig
+from rdkit.Chem import AllChem, ChemicalFeatures
+from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
+
 DrawingOptions.bondLineWidth = 1.8
 
 
@@ -98,114 +96,6 @@ def compute_kaggle_metric(predict, coupling_value, coupling_type):
             log_mae[t] = log_m
 
     return mae, log_mae
-
-
-
-###############################################################
-#def make_graph(molecule_name, gb_structure, gb_scalar_coupling, ):
-#    # https://stackoverflow.com/questions/14734533/how-to-access-pandas-groupby-dataframe-by-key
-#
-#    # ----
-#    df = gb_scalar_coupling.get_group(molecule_name)
-#    # ['id', 'molecule_name', 'atom_index_0', 'atom_index_1', 'type',
-#    #        'scalar_coupling_constant', 'fc', 'sd', 'pso', 'dso'],
-#
-#    coupling = Struct(
-#        id=df.id.values,
-#        contribution=df[['fc', 'sd', 'pso', 'dso']].values,
-#        index=df[['atom_index_0', 'atom_index_1']].values,
-#        #type = np.array([ one_hot_encoding(t,COUPLING_TYPE) for t in df.type.values ], np.uint8)
-#        type=np.array([COUPLING_TYPE.index(t)
-#                       for t in df.type.values], np.int32),
-#        value=df.scalar_coupling_constant.values,
-#    )
-#    # ----
-#    df = gb_structure.get_group(molecule_name)
-#    df = df.sort_values(['atom_index'], ascending=True)
-#    # ['molecule_name', 'atom_index', 'atom', 'x', 'y', 'z']
-#    a = df.atom.values.tolist()
-#    xyz = df[['x', 'y', 'z']].values
-#    mol = mol_from_axyz(a, xyz)
-#
-#    # ---
-#    assert(a == [mol.GetAtomWithIdx(i).GetSymbol()
-#                 for i in range(mol.GetNumAtoms())])
-#
-#    # ---
-#    factory = ChemicalFeatures.BuildFeatureFactory(
-#        os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef'))
-#    feature = factory.GetFeaturesForMol(mol)
-#
-#    # ** node **
-#    #[ a.GetSymbol() for a in mol.GetAtoms() ]
-#
-#    num_atom = mol.GetNumAtoms()
-#    symbol = np.zeros((num_atom, len(SYMBOL)), np.uint8)  # category
-#    acceptor = np.zeros((num_atom, 1), np.uint8)
-#    donor = np.zeros((num_atom, 1), np.uint8)
-#    aromatic = np.zeros((num_atom, 1), np.uint8)
-#    hybridization = np.zeros((num_atom, len(HYBRIDIZATION)), np.uint8)
-#    num_h = np.zeros((num_atom, 1), np.float32)  # real
-#    atomic = np.zeros((num_atom, 1), np.float32)
-#
-#    for i in range(num_atom):
-#        atom = mol.GetAtomWithIdx(i)
-#        symbol[i] = one_hot_encoding(atom.GetSymbol(), SYMBOL)
-#        aromatic[i] = atom.GetIsAromatic()
-#        hybridization[i] = one_hot_encoding(
-#            atom.GetHybridization(), HYBRIDIZATION)
-#
-#        num_h[i] = atom.GetTotalNumHs(includeNeighbors=True)
-#        atomic[i] = atom.GetAtomicNum()
-#
-#    #[f.GetFamily() for f in feature]
-#    for t in range(0, len(feature)):
-#        if feature[t].GetFamily() == 'Donor':
-#            for i in feature[t].GetAtomIds():
-#                donor[i] = 1
-#        elif feature[t].GetFamily() == 'Acceptor':
-#            for i in feature[t].GetAtomIds():
-#                acceptor[i] = 1
-#
-#    # ** edge **
-#    num_edge = num_atom*num_atom - num_atom
-#    edge_index = np.zeros((num_edge, 2), np.uint8)
-#    bond_type = np.zeros((num_edge, len(BOND_TYPE)), np.uint8)  # category
-#    distance = np.zeros((num_edge, 1), np.float32)  # real
-#    angle = np.zeros((num_edge, 1), np.float32)  # real
-#
-#    norm_xyz = preprocessing.normalize(xyz, norm='l2')
-#
-#    ij = 0
-#    for i in range(num_atom):
-#        for j in range(num_atom):
-#            if i == j:
-#                continue
-#            edge_index[ij] = [i, j]
-#
-#            bond = mol.GetBondBetweenAtoms(i, j)
-#            if bond is not None:
-#                bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
-#
-#            distance[ij] = ((xyz[i] - xyz[j])**2).sum()**0.5
-#            angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
-#
-#            ij += 1
-#    # -------------------
-#
-#    graph = Struct(
-#        molecule_name=molecule_name,
-#        smiles=Chem.MolToSmiles(mol),
-#        axyz=[a, xyz],
-#
-#        node=[symbol, acceptor, donor, aromatic,
-#              hybridization, num_h, atomic, ],
-#        edge=[bond_type, distance, angle],
-#        edge_index=edge_index,
-#
-#        coupling=coupling,
-#    )
-#    return graph
 
 
 ###############################################################
@@ -299,17 +189,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
                 bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
             
             distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0)
-
-            #distance[ij] = ((xyz[i] - xyz[j])**2).sum()**0.5
-        
-            #print('distance: ')
-            #print(str(distance))
-
-            #distance_single[ij][0] = (xyz[i][0] - xyz[j][0]) ** 2
-            #distance_single[ij][1] = (xyz[i][1] - xyz[j][1]) ** 2
-            #distance_single[ij][2] = (xyz[i][2] - xyz[j][2]) ** 2
-            #print('distance_single: ')
-            #print(str(distance_single))
+            #distance[ij] = ((xyz[i] - xyz[j])**2).sum()**0.5 | seems to be the same
 
             angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
 
@@ -784,22 +664,20 @@ def mol_from_axyz(symbol, xyz):
     return mol
 
 
-# check #################################################################
 def load_csv():
-
-    DATA_DIR = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data'
+    DATA_DIR = get_data_path()
 
     # structure
-    df_structure = pd.read_csv(DATA_DIR + '/structures.csv')
+    df_structure = pd.read_csv(DATA_DIR + 'structures.csv')
     #df_angles = pd.read_csv(DATA_DIR + '/angles.csv')
 
     # coupling
-    df_train = pd.read_csv(DATA_DIR + '/train.csv')
-    df_test = pd.read_csv(DATA_DIR + '/test.csv')
+    df_train = pd.read_csv(DATA_DIR + 'train.csv')
+    df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
     df_test['scalar_coupling_constant'] = 0
     df_scalar_coupling = pd.concat([df_train, df_test])
-    df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + '/scalar_coupling_contributions.csv')
+    df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
     df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
                                   how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0', 'type'])
     #df_scalar_coupling_angles = pd.merge(df_scalar_coupling, df_angles,
@@ -811,9 +689,66 @@ def load_csv():
     return gb_structure, df_scalar_coupling
 
 
+def do_one(p):
+    molecule_name, gb_structure, gb_scalar_coupling, graph_file = p
+    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
+    print(g.molecule_name, g.smiles)
+    write_pickle_to_file(graph_file, g)
+
+
+def run_convert_to_graph():
+    graph_dir = get_path() + 'data/graphs/graph1'
+    os.makedirs(graph_dir, exist_ok=True)
+
+    gb_structure, gb_scalar_coupling = load_csv()
+    molecule_names = list(gb_scalar_coupling.groups.keys())
+    molecule_names = np.sort(molecule_names)
+
+    param = []
+    for i, molecule_name in enumerate(molecule_names):
+        graph_file = graph_dir + '/%s.pickle' % molecule_name
+        p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
+        if i < 2000:
+            do_one(p)
+        else:
+            param.append(p)
+
+    pool = mp.Pool(processes=4)
+    pool.map(do_one, param)
+
+
+def run_make_split(num_valid, coupling_type=None):
+    split_dir = get_path() + 'data/split/'
+    csv_file = get_data_path() + 'train.csv'
+    os.makedirs(split_dir, exist_ok=True)
+
+    df = pd.read_csv(csv_file)
+    
+    if coupling_type is not None:
+        df = df[df.type==coupling_type]
+
+    molecule_names = df.molecule_name.unique()
+    molecule_names = np.sort(molecule_names)
+
+    debug_split = molecule_names[:1000]
+    np.save(split_dir + 'debug_split_by_mol.%d.npy' %
+            len(debug_split), debug_split)
+
+    np.random.shuffle(molecule_names)
+    num_all = len(molecule_names)
+    num_valid = num_valid
+    num_train = num_all - num_valid
+    print(num_train, num_valid)
+    train_split = molecule_names[num_valid:]
+    valid_split = molecule_names[:num_valid]
+
+    np.save(split_dir + 'train_split_by_mol.%d.npy' % num_train, train_split)
+    np.save(split_dir + 'valid_split_by_mol.%d.npy' % num_valid, valid_split)
+
+
+# check #######################################################################
 def run_check_0():
-    xyz_dir = ('/run/media/windisk/Users/chrun/Documents/Projects/Machine Learning/'
-               'structured-data/Predicting-Molecular-Properties/data/structures/xyz')
+    xyz_dir = get_path() + 'data/structures/xyz'
     name = [
         'dsgdb9nsd_000001',
         'dsgdb9nsd_000002',
@@ -860,67 +795,9 @@ def run_check_0a():
     print('')
 
 
-def do_one(p):
-    molecule_name, gb_structure, gb_scalar_coupling, graph_file = p
-    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
-    print(g.molecule_name, g.smiles)
-    write_pickle_to_file(graph_file, g)
-
-
-# ----
-def run_convert_to_graph():
-    graph_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/graphs/graph1'
-    os.makedirs(graph_dir, exist_ok=True)
-
-    gb_structure, gb_scalar_coupling = load_csv()
-    molecule_names = list(gb_scalar_coupling.groups.keys())
-    molecule_names = np.sort(molecule_names)
-
-    param = []
-    for i, molecule_name in enumerate(molecule_names):
-        graph_file = graph_dir + '/%s.pickle' % molecule_name
-        p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
-        if i < 2000:
-            do_one(p)
-        else:
-            param.append(p)
-
-    pool = mp.Pool(processes=4)
-    pool.map(do_one, param)
-
-
-def run_make_split(num_valid, coupling_type=None):
-    split_dir = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/split'
-    csv_file = '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/train.csv'
-
-    df = pd.read_csv(csv_file)
-    
-    if coupling_type is not None:
-        df = df[df.type==coupling_type]
-
-    molecule_names = df.molecule_name.unique()
-    molecule_names = np.sort(molecule_names)
-
-    debug_split = molecule_names[:1000]
-    np.save(split_dir + '/debug_split_by_mol.%d.npy' %
-            len(debug_split), debug_split)
-
-    np.random.shuffle(molecule_names)
-    num_all = len(molecule_names)
-    num_valid = num_valid
-    num_train = num_all - num_valid
-    print(num_train, num_valid)
-    train_split = molecule_names[num_valid:]
-    valid_split = molecule_names[:num_valid]
-
-    np.save(split_dir + '/train_split_by_mol.%d.npy' % num_train, train_split)
-    np.save(split_dir + '/valid_split_by_mol.%d.npy' % num_valid, valid_split)
-
 
 # main #################################################################
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
-    # run_check_0a()
-    #load_csv()
-    run_convert_to_graph()
+    #run_convert_to_graph()
     run_make_split(num_valid=5000)

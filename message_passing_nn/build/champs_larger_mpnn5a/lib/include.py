@@ -32,7 +32,6 @@ from torch.nn.parallel.data_parallel import data_parallel
 
 from torch.nn.utils.rnn import *
 
-
 # std libs
 import collections
 import copy
@@ -50,7 +49,6 @@ import json
 import zipfile
 
 
-
 import csv
 import pandas as pd
 import pickle
@@ -59,16 +57,10 @@ import sys
 from distutils.dir_util import copy_tree
 import time
 
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
-
 
 # constant #
 PI  = np.pi
 INF = np.inf
 EPS = 1e-12
-
-
-

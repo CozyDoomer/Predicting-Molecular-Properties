@@ -18,20 +18,20 @@ EDGE_DIM = 8   #  7 9 6 11
 NODE_DIM = 93  # 13
 NUM_TARGET = 8
 
-DATA_DIR = ('/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data')
-
 
 class ChampsDataset(Dataset):
-    def __init__(self, split, csv, mode, augment=None):
+
+    def __init__(self, split, csv, mode, augment=None, coupling_types=['1JHC', '2JHC', '3JHC', '1JHN',  \
+                                                                       '2JHN', '3JHN', '2JHH', '3JHH']):
         self.split = split
         self.csv = csv
         self.mode = mode
         self.augment = augment
-
-        self.df = pd.read_csv(DATA_DIR + '/%s.csv' % csv)
+        self.coupling_types = coupling_types
+        self.df = pd.read_csv(get_data_path()  + '/%s.csv' % csv)
 
         if split is not None:
-            self.id = np.load(DATA_DIR + '/split/%s' %
+            self.id = np.load(get_data_path()  + '/split/%s' %
                               split, allow_pickle=True)
         else:
             self.id = self.df.molecule_name.unique()
@@ -50,22 +50,19 @@ class ChampsDataset(Dataset):
 
     def __getitem__(self, index):
         molecule_name = self.id[index]
-        graph_file = DATA_DIR + '/graphs/graph1/%s.pickle' % molecule_name
+        graph_file = get_data_path()  + '/graphs/graph1/%s.pickle' % molecule_name
         graph = read_pickle_from_file(graph_file)
         assert(graph.molecule_name == molecule_name)
 
-        # (1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH)
+        mask = np.zeros(len(graph.coupling.type),np.bool)
+        for t in self.coupling_types:
+            mask += (graph.coupling.type == COUPLING_TYPE.index(t))
         
-        #TODO: try training per coupling type / groups ['1JHC', '2JHC', '3JHC']
-        #mask = np.zeros(len(graph.coupling.type),np.bool)
-        #for t in ['1JHC']:
-        #    mask += (graph.coupling.type == COUPLING_TYPE.index(t))
-        #
-        #graph.coupling.id = graph.coupling.id[mask]
-        #graph.coupling.contribution = graph.coupling.contribution[mask]
-        #graph.coupling.index = graph.coupling.index[mask]
-        #graph.coupling.type = graph.coupling.type[mask]
-        #graph.coupling.value = graph.coupling.value[mask]
+        graph.coupling.id = graph.coupling.id[mask]
+        graph.coupling.contribution = graph.coupling.contribution[mask]
+        graph.coupling.index = graph.coupling.index[mask]
+        graph.coupling.type = graph.coupling.type[mask]
+        graph.coupling.value = graph.coupling.value[mask]
 
         atom = System(symbols=graph.axyz[0], positions=graph.axyz[1])
         acsf = ACSF_GENERATOR.create(atom)

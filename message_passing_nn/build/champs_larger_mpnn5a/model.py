@@ -1,12 +1,43 @@
+import os
 from torch_geometric.utils import scatter_
 from torch_scatter import *
+
+from losses import *
 from common import *
+
 from lib.net.lstm_norm import LSTM, BNLSTMCell
-import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 #############################################################################
+
+
+def l2_loss(predict, coupling_value):
+    predict = predict.view(-1)
+    coupling_value = coupling_value.view(-1)
+    assert(predict.shape == coupling_value.shape)
+
+    loss = F.mse_loss(predict, coupling_value)
+    return loss
+
+def log_l1_loss(predict, truth):
+    predict = predict.view(-1)
+    truth = truth.view(-1)
+    assert(predict.shape == truth.shape)
+
+    loss = torch.abs(predict-truth)
+    loss = loss.mean()
+    loss = torch.log(loss)
+    return loss
+
+def huber_loss(predict, truth):
+    predict = predict.view(-1)
+    truth = truth.view(-1)
+    assert(predict.shape == truth.shape)
+
+    loss = torch.F.smooth_l1_loss(predict, truth)
+    return loss
+
 
 def weights_init(m):
     if isinstance(m, nn.Conv2d):
@@ -31,19 +62,27 @@ class LinearBn(nn.Module):
 
 
 class GraphConv(nn.Module):
-    def __init__(self, node_dim, edge_dim):
-        super(GraphConv, self).__init__()
+    def __init__(self, node_dim, edge_dim, use_large=False):
+        super(GraphConv, self).__init__()       
 
-        self.encoder = nn.Sequential(
-            LinearBn(edge_dim, 512),
-            nn.ReLU(inplace=True),
-            LinearBn(512, 512),
-            nn.ReLU(inplace=True),
-            LinearBn(512, 256),
-            nn.ReLU(inplace=True),
-            LinearBn(256, node_dim * node_dim),
-            # nn.ReLU(inplace=True),
-        )
+        if use_large:
+            self.encoder = nn.Sequential(
+                LinearBn(edge_dim, 512),
+                nn.ReLU(inplace=True),
+                LinearBn(512, 512),
+                nn.ReLU(inplace=True),
+                LinearBn(512, 256),
+                nn.ReLU(inplace=True),
+                LinearBn(256, node_dim * node_dim)) # nn.ReLU(inplace=True),                
+        else:
+            self.encoder = nn.Sequential(
+                LinearBn(edge_dim, 256),
+                nn.ReLU(inplace=True),
+                LinearBn(256, 256),
+                nn.ReLU(inplace=True),
+                LinearBn(256, 128),
+                nn.ReLU(inplace=True),
+                LinearBn(128, node_dim * node_dim)) # nn.ReLU(inplace=True),
 
         self.gru = nn.GRU(node_dim, node_dim,
                           batch_first=False, bidirectional=False)
@@ -60,6 +99,7 @@ class GraphConv(nn.Module):
 
         # 1. message :  m_j = SUM_i f(n_i, n_j, e_ij)  where i is neighbour(j)
         x_i = torch.index_select(node, 0, edge_index[0])
+
         edge = self.encoder(edge).view(-1, node_dim, node_dim)
 
         #message = x_i.view(-1,node_dim,1)*edge
@@ -133,6 +173,7 @@ class Set2Set(torch.nn.Module):
 class Net(torch.nn.Module):
     def __init__(self, node_dim=13, edge_dim=5, num_target=8):
         super(Net, self).__init__()
+        self.use_large_encoder = False
         self.num_propagate = 6
         self.num_s2s = 6
 
@@ -143,7 +184,7 @@ class Net(torch.nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        self.propagate = GraphConv(128, edge_dim)
+        self.propagate = GraphConv(128, edge_dim, use_large=self.use_large_encoder)
         self.set2set = Set2Set(128, processing_step=self.num_s2s)
 
         #predict coupling constant
@@ -186,8 +227,9 @@ class Net(torch.nn.Module):
 class LargerNet(torch.nn.Module):
     def __init__(self, node_dim=13, edge_dim=5, num_target=8):
         super(LargerNet, self).__init__()
-        self.num_propagate = 2
-        self.num_s2s = 2
+        self.use_large_encoder = True
+        self.num_propagate = 1
+        self.num_s2s = 1
 
         self.preprocess = nn.Sequential(
             LinearBn(node_dim, 512),
@@ -198,7 +240,7 @@ class LargerNet(torch.nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        self.propagate = GraphConv(256, edge_dim)
+        self.propagate = GraphConv(256, edge_dim, use_large=self.use_large_encoder)
         self.set2set = Set2Set(256, processing_step=self.num_s2s)
 
         #predict coupling constant
@@ -238,26 +280,6 @@ class LargerNet(torch.nn.Module):
         predict = self.predict(torch.cat([pool, node0, node1], -1))
         predict = torch.gather(predict, 1, coupling_type_index).view(-1)
         return predict
-
-
-def l2_loss(predict, coupling_value):
-    predict = predict.view(-1)
-    coupling_value = coupling_value.view(-1)
-    assert(predict.shape == coupling_value.shape)
-
-    loss = F.mse_loss(predict, coupling_value)
-    return loss
-
-
-def log_l1_loss(predict, truth):
-    predict = predict.view(-1)
-    truth = truth.view(-1)
-    assert(predict.shape == truth.shape)
-
-    loss = torch.abs(predict-truth)
-    loss = loss.mean()
-    loss = torch.log(loss)
-    return loss
 
 
 ##################################################################################################################
@@ -359,7 +381,6 @@ def run_check_net():
 
 
 def run_check_train():
-
     node_dim = 15
     edge_dim = 5
     num_target = 12
@@ -372,7 +393,7 @@ def run_check_train():
     net = net.eval()
 
     predict = net(node, edge, edge_index, node_index, coupling_index)
-    loss = criterion(predict, coupling_value)
+    loss = log_l1_loss(predict, coupling_value)
 
     print('*loss = %0.5f' % (loss.item(),))
     print('')
@@ -397,7 +418,7 @@ def run_check_train():
         optimizer.zero_grad()
 
         predict = net(node, edge, edge_index, node_index, coupling_index)
-        loss = criterion(predict, coupling_value)
+        loss = log_l1_loss(predict, coupling_value)
 
         loss.backward()
         optimizer.step()

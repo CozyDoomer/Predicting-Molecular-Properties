@@ -8,11 +8,9 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def run_submit(loss_func=log_l1_loss):
 
-    out_dir = ('/run/media/windisk/Users/chrun/Documents/Projects/'
-               'Predicting-Molecular-Properties/graph_cnn/data/submission/zzz')
+    out_dir = get_path() + 'data/submission/zzz'
 
-    initial_checkpoint = ('/run/media/windisk/Users/chrun/Documents/Projects/'
-                          'Predicting-Molecular-Properties/graph_cnn/data/results/zzz/checkpoint/00125000_model.pth')
+    initial_checkpoint = get_path() + 'data/results/zzz/checkpoint/00325000_model.pth'
 
     csv_file = out_dir + \
         '/submit/submit-%s-larger.csv' % (

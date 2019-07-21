@@ -3,7 +3,6 @@ from lib.utility.draw import *
 from lib.utility.file import *
 from lib.net.rate import *
 
-
 # ---------------------------------------------------------------------------------
 COMMON_STRING = '@%s:  \n' % os.path.basename(__file__)
 
@@ -36,6 +35,12 @@ COMMON_STRING += '\t\ttorch.cuda.device_count()      = %d\n' % torch.cuda.device
 
 
 COMMON_STRING += '\n'
+
+def get_path():
+    return '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/message_passing_nn/'
+
+def get_data_path():
+    return '/run/media/windisk/Users/chrun/Documents/Projects/Predicting-Molecular-Properties/data/'
 
 # ---------------------------------------------------------------------------------
 # useful : http://forums.fast.ai/t/model-visualization/12365/2
