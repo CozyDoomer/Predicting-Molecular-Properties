@@ -171,9 +171,9 @@ class Set2Set(torch.nn.Module):
         return q_star
 
 class Net(torch.nn.Module):
-    def __init__(self, node_dim=13, edge_dim=5, num_target=8):
+    def __init__(self, node_dim=13, edge_dim=5, num_target=8, use_large_encoder=False):
         super(Net, self).__init__()
-        self.use_large_encoder = False
+        self.use_large_encoder = use_large_encoder
         self.num_propagate = 6
         self.num_s2s = 6
 
@@ -225,9 +225,9 @@ class Net(torch.nn.Module):
 
 # message passing
 class LargerNet(torch.nn.Module):
-    def __init__(self, node_dim=13, edge_dim=5, num_target=8):
+    def __init__(self, node_dim=13, edge_dim=5, num_target=8, use_large_encoder=False):
         super(LargerNet, self).__init__()
-        self.use_large_encoder = True
+        self.use_large_encoder = use_large_encoder
         self.num_propagate = 1
         self.num_s2s = 1
 
