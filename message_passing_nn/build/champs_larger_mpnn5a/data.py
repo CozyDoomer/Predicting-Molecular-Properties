@@ -799,5 +799,5 @@ def run_check_0a():
 # main #################################################################
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
-    #run_convert_to_graph()
+    run_convert_to_graph()
     run_make_split(num_valid=5000)
