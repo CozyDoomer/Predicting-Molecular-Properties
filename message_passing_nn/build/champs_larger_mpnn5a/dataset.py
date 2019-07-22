@@ -114,6 +114,7 @@ def null_collate(batch):
     node_index = torch.from_numpy(np.concatenate(node_index)).long()
 
     coupling_value = torch.from_numpy(np.concatenate(coupling_value)).float()
+    
     coupling_index = np.concatenate([
         np.concatenate(coupling_atom_index),
         np.concatenate(coupling_type_index).reshape(-1, 1),

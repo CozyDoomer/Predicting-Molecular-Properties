@@ -99,6 +99,33 @@ def compute_kaggle_metric(predict, coupling_value, coupling_type):
 
 
 ###############################################################
+
+
+def load_csv():
+    DATA_DIR = get_data_path()
+
+    # structure
+    df_structure = pd.read_csv(DATA_DIR + 'structures.csv')
+    #df_angles = pd.read_csv(DATA_DIR + '/angles.csv')
+
+    # coupling
+    df_train = pd.read_csv(DATA_DIR + 'train.csv')
+    df_test = pd.read_csv(DATA_DIR + 'test.csv')
+
+    df_test['scalar_coupling_constant'] = 0
+    df_scalar_coupling = pd.concat([df_train, df_test])
+    df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
+    df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
+                                  how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0', 'type'])
+    #df_scalar_coupling_angles = pd.merge(df_scalar_coupling, df_angles,
+    #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0'])
+
+    df_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
+    gb_structure = df_structure.groupby('molecule_name')
+
+    return gb_structure, df_scalar_coupling
+
+
 def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     # https://stackoverflow.com/questions/14734533/how-to-access-pandas-groupby-dataframe-by-key
 
@@ -112,8 +139,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         contribution=df[['fc', 'sd', 'pso', 'dso']].values,
         index=df[['atom_index_0', 'atom_index_1']].values,
         #type = np.array([ one_hot_encoding(t,COUPLING_TYPE) for t in df.type.values ], np.uint8)
-        type=np.array([COUPLING_TYPE.index(t)
-                       for t in df.type.values], np.int32),
+        type=np.array([COUPLING_TYPE.index(t) for t in df.type.values], np.int32),
         value=df.scalar_coupling_constant.values,
     )
 
@@ -200,9 +226,8 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
-
         node=[symbol, acceptor, donor, aromatic,
-              hybridization, num_h, atomic, ],
+              hybridization, num_h, atomic],
         edge=[bond_type, distance, angle], 
         edge_index=edge_index,
         coupling=coupling,
@@ -662,31 +687,6 @@ def mol_from_axyz(symbol, xyz):
     atom_no = get_atomicNumList(symbol)
     mol = xyz2mol(atom_no, xyz, charge, charged_fragments, quick)
     return mol
-
-
-def load_csv():
-    DATA_DIR = get_data_path()
-
-    # structure
-    df_structure = pd.read_csv(DATA_DIR + 'structures.csv')
-    #df_angles = pd.read_csv(DATA_DIR + '/angles.csv')
-
-    # coupling
-    df_train = pd.read_csv(DATA_DIR + 'train.csv')
-    df_test = pd.read_csv(DATA_DIR + 'test.csv')
-
-    df_test['scalar_coupling_constant'] = 0
-    df_scalar_coupling = pd.concat([df_train, df_test])
-    df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
-    df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
-                                  how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0', 'type'])
-    #df_scalar_coupling_angles = pd.merge(df_scalar_coupling, df_angles,
-    #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0'])
-
-    df_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
-    gb_structure = df_structure.groupby('molecule_name')
-
-    return gb_structure, df_scalar_coupling
 
 
 def do_one(p):

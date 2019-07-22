@@ -62,27 +62,17 @@ class LinearBn(nn.Module):
 
 
 class GraphConv(nn.Module):
-    def __init__(self, node_dim, edge_dim, use_large=False):
+    def __init__(self, node_dim, edge_dim):
         super(GraphConv, self).__init__()       
 
-        if use_large:
-            self.encoder = nn.Sequential(
-                LinearBn(edge_dim, 512),
-                nn.ReLU(inplace=True),
-                LinearBn(512, 512),
-                nn.ReLU(inplace=True),
-                LinearBn(512, 256),
-                nn.ReLU(inplace=True),
-                LinearBn(256, node_dim * node_dim)) # nn.ReLU(inplace=True),                
-        else:
-            self.encoder = nn.Sequential(
-                LinearBn(edge_dim, 256),
-                nn.ReLU(inplace=True),
-                LinearBn(256, 256),
-                nn.ReLU(inplace=True),
-                LinearBn(256, 128),
-                nn.ReLU(inplace=True),
-                LinearBn(128, node_dim * node_dim)) # nn.ReLU(inplace=True),
+        self.encoder = nn.Sequential(
+            LinearBn(edge_dim, 256),
+            nn.ReLU(inplace=True),
+            LinearBn(256, 256),
+            nn.ReLU(inplace=True),
+            LinearBn(256, 128),
+            nn.ReLU(inplace=True),
+            LinearBn(128, node_dim * node_dim)) # nn.ReLU(inplace=True),
 
         self.gru = nn.GRU(node_dim, node_dim,
                           batch_first=False, bidirectional=False)
@@ -171,9 +161,8 @@ class Set2Set(torch.nn.Module):
         return q_star
 
 class Net(torch.nn.Module):
-    def __init__(self, node_dim=13, edge_dim=5, num_target=8, use_large_encoder=False):
+    def __init__(self, node_dim=13, edge_dim=5, num_target=8):
         super(Net, self).__init__()
-        self.use_large_encoder = use_large_encoder
         self.num_propagate = 6
         self.num_s2s = 6
 
@@ -184,7 +173,7 @@ class Net(torch.nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        self.propagate = GraphConv(128, edge_dim, use_large=self.use_large_encoder)
+        self.propagate = GraphConv(128, edge_dim)
         self.set2set = Set2Set(128, processing_step=self.num_s2s)
 
         #predict coupling constant
@@ -225,9 +214,8 @@ class Net(torch.nn.Module):
 
 # message passing
 class LargerNet(torch.nn.Module):
-    def __init__(self, node_dim=13, edge_dim=5, num_target=8, use_large_encoder=False):
+    def __init__(self, node_dim=13, edge_dim=5, num_target=8):
         super(LargerNet, self).__init__()
-        self.use_large_encoder = use_large_encoder
         self.num_propagate = 1
         self.num_s2s = 1
 
@@ -240,7 +228,7 @@ class LargerNet(torch.nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        self.propagate = GraphConv(256, edge_dim, use_large=self.use_large_encoder)
+        self.propagate = GraphConv(256, edge_dim)
         self.set2set = Set2Set(256, processing_step=self.num_s2s)
 
         #predict coupling constant
