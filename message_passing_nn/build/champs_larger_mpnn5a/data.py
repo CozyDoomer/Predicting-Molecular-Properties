@@ -100,8 +100,13 @@ def compute_kaggle_metric(predict, coupling_value, coupling_type):
 
 ###############################################################
 
+def filter_dataframes(df, coupling_types=None):
+    if coupling_types is not None:
+        return df.loc[df['type'].isin(coupling_types)]
+    return df
 
-def load_csv():
+
+def load_csv(coupling_types=None):
     DATA_DIR = get_data_path()
 
     # structure
@@ -112,6 +117,9 @@ def load_csv():
     df_train = pd.read_csv(DATA_DIR + 'train.csv')
     df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
+    df_train = filter_dataframes(df_train, coupling_types=coupling_types)
+    df_test = filter_dataframes(df_test, coupling_types=coupling_types)
+
     df_test['scalar_coupling_constant'] = 0
     df_scalar_coupling = pd.concat([df_train, df_test])
     df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
@@ -121,9 +129,40 @@ def load_csv():
     #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0'])
 
     df_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
+    #for key, item in df_scalar_coupling:
+    #    print(df_scalar_coupling.get_group(key), "\n\n")
     gb_structure = df_structure.groupby('molecule_name')
 
     return gb_structure, df_scalar_coupling
+
+
+def run_convert_to_graph(graph_dir='all_types', coupling_types=None):
+    graph_dir = get_path() + 'data/graphs/' + graph_dir
+    os.makedirs(graph_dir, exist_ok=True)
+
+    gb_structure, gb_scalar_coupling = load_csv(coupling_types=coupling_types)
+    molecule_names = list(gb_scalar_coupling.groups.keys())
+    molecule_names = np.sort(molecule_names)
+
+    param = []
+    for i, molecule_name in enumerate(molecule_names):
+        graph_file = graph_dir + '/%s.pickle' % molecule_name
+        p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
+        if i < 2000:
+            do_one(p)
+        else:
+            param.append(p)
+
+    pool = mp.Pool(processes=4)
+    pool.map(do_one, param)
+
+
+def do_one(p):
+    molecule_name, gb_structure, gb_scalar_coupling, graph_file = p
+
+    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
+    print(g.molecule_name, g.smiles)
+    write_pickle_to_file(graph_file, g)
 
 
 def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
@@ -689,43 +728,15 @@ def mol_from_axyz(symbol, xyz):
     return mol
 
 
-def do_one(p):
-    molecule_name, gb_structure, gb_scalar_coupling, graph_file = p
-    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
-    print(g.molecule_name, g.smiles)
-    write_pickle_to_file(graph_file, g)
-
-
-def run_convert_to_graph():
-    graph_dir = get_path() + 'data/graphs/graph1'
-    os.makedirs(graph_dir, exist_ok=True)
-
-    gb_structure, gb_scalar_coupling = load_csv()
-    molecule_names = list(gb_scalar_coupling.groups.keys())
-    molecule_names = np.sort(molecule_names)
-
-    param = []
-    for i, molecule_name in enumerate(molecule_names):
-        graph_file = graph_dir + '/%s.pickle' % molecule_name
-        p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
-        if i < 2000:
-            do_one(p)
-        else:
-            param.append(p)
-
-    pool = mp.Pool(processes=4)
-    pool.map(do_one, param)
-
-
-def run_make_split(num_valid, coupling_type=None):
+def run_make_split(num_valid, graphs='all_types', coupling_types=None):
     split_dir = get_path() + 'data/split/'
     csv_file = get_data_path() + 'train.csv'
     os.makedirs(split_dir, exist_ok=True)
 
     df = pd.read_csv(csv_file)
     
-    if coupling_type is not None:
-        df = df[df.type==coupling_type]
+    if coupling_types is not None:
+        df = df.loc[df['type'].isin(coupling_types)]
 
     molecule_names = df.molecule_name.unique()
     molecule_names = np.sort(molecule_names)
@@ -795,9 +806,10 @@ def run_check_0a():
     print('')
 
 
-
 # main #################################################################
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
-    run_convert_to_graph()
-    run_make_split(num_valid=5000)
+    #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
+    coupling_types = ['3JHN']
+    run_convert_to_graph(graph_dir='3JHN', coupling_types=coupling_types)
+    run_make_split(num_valid=3000, coupling_types=coupling_types)

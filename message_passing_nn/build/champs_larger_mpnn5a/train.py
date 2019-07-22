@@ -66,7 +66,7 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
 
 
 def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None, 
-              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
+              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', graph_dir='all_types',
               out_dir='data/results/zzz', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN' '2JHN', '3JHN', '2JHH', '3JHH']):
     # setup  -----------------------------------------------------------------------------
     os.makedirs(out_dir, exist_ok=True)
@@ -94,7 +94,8 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
         csv='train',
         mode='train',
         split=split_train,
-        coupling_types=coupling_types
+        coupling_types=coupling_types,
+        graph_dir=graph_dir
     )
     train_loader = DataLoader(
         train_dataset,
@@ -113,7 +114,8 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
         # split='debug_split_by_mol.1000.npy',
         split=split_valid,
         augment=None,
-        coupling_types=coupling_types
+        coupling_types=coupling_types,
+        graph_dir=graph_dir
     )
     valid_loader = DataLoader(
         valid_dataset,
@@ -298,15 +300,15 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/all_JHC'
-    checkpoint_path = get_path() + 'data/results/all_JHC/checkpoint/00147500_model.pth'
+    output_directory = get_path() + 'data/results/3JHN'
+    checkpoint_path = get_path() + 'data/results/3JHN/checkpoint/00000000_model.pth'
 
     #TODO: try training per coupling type / groups 
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
-    coupling_types_to_be_used = ['1JHC', '2JHC', '3JHC']
+    coupling_types = ['3JHN']
 
-    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=200*1000, batch_size=16, coupling_types=coupling_types_to_be_used,
-              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
-              initial_checkpoint=checkpoint_path, out_dir=output_directory)
+    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300*1000, batch_size=16, coupling_types=coupling_types,
+              split_train='train_split_by_mol.42774.npy', split_valid='valid_split_by_mol.3000.npy', 
+              initial_checkpoint=None, graph_dir='3JHN', out_dir=output_directory)
 
     print('\nsuccess!')

@@ -21,18 +21,19 @@ NUM_TARGET = 8
 
 class ChampsDataset(Dataset):
 
-    def __init__(self, split, csv, mode, augment=None, coupling_types=['1JHC', '2JHC', '3JHC', '1JHN',  \
-                                                                       '2JHN', '3JHN', '2JHH', '3JHH']):
+    def __init__(self, split, csv, mode, augment=None, graph_dir='all_types', 
+                 coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
         self.split = split
         self.csv = csv
         self.mode = mode
         self.augment = augment
         self.coupling_types = coupling_types
+        self.graph_dir = graph_dir
+
         self.df = pd.read_csv(get_data_path()  + '/%s.csv' % csv)
 
         if split is not None:
-            self.id = np.load(get_data_path()  + '/split/%s' %
-                              split, allow_pickle=True)
+            self.id = np.load(get_path()  + 'data/split/%s' % split, allow_pickle=True)
         else:
             self.id = self.df.molecule_name.unique()
 
@@ -50,7 +51,7 @@ class ChampsDataset(Dataset):
 
     def __getitem__(self, index):
         molecule_name = self.id[index]
-        graph_file = get_data_path()  + '/graphs/graph1/%s.pickle' % molecule_name
+        graph_file = get_path()  + 'data/graphs/' + self.graph_dir + '/%s.pickle' % molecule_name
         graph = read_pickle_from_file(graph_file)
         assert(graph.molecule_name == molecule_name)
 
