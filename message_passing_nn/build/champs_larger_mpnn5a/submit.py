@@ -7,14 +7,10 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 def run_submit(loss_func=log_l1_loss):
+    out_dir = get_path() + 'data/submission/all_types'
+    initial_checkpoint = get_path() + 'data/results/all_types/checkpoint/00244000_model.pth'
 
-    out_dir = get_path() + 'data/submission/zzz'
-
-    initial_checkpoint = get_path() + 'data/results/zzz/checkpoint/00325000_model.pth'
-
-    csv_file = out_dir + \
-        '/submit/submit-%s-larger.csv' % (
-            initial_checkpoint.split('/')[-1][:-4])
+    csv_file = out_dir + '/submit/submit-%s-larger.csv' % (initial_checkpoint.split('/')[-1][:-4])
 
     # setup  -----------------------------------------------------------------------------
     os.makedirs(out_dir + '/checkpoint', exist_ok=True)
@@ -33,26 +29,18 @@ def run_submit(loss_func=log_l1_loss):
     log.write('** dataset setting **\n')
     batch_size = 10  # *2 #280*2 #256*4 #128 #256 #512  #16 #32
 
-    # est_dataset = ChampsDataset(
-    #           mode ='train',
-    #           csv  ='train',
-    #           #split='debug_split_by_mol.1000.npy',
-    #           split='valid_split_by_mol.5000.npy',
-    #           augment=None,)
-    #
-
     # ------------
     test_dataset = ChampsDataset(
         mode='test',
         csv='test',
-        # split='debug_split_by_mol.1000.npy',
         split=None,
-        augment=None,)
+        augment=None
+    )
 
     test_loader = DataLoader(
         test_dataset,
         sampler=SequentialSampler(test_dataset),
-        #sampler     = RandomSampler(train_dataset),
+        #sampler=RandomSampler(train_dataset),
         batch_size=batch_size,
         drop_last=False,
         num_workers=0,
@@ -66,7 +54,7 @@ def run_submit(loss_func=log_l1_loss):
 
     # net ----------------------------------------
     log.write('** net setting **\n')
-    net = LargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    net = SagPoolLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
 
     log.write('\tinitial_checkpoint = %s\n' % initial_checkpoint)
     net.load_state_dict(torch.load(initial_checkpoint,
@@ -118,14 +106,13 @@ def run_submit(loss_func=log_l1_loss):
     assert(test_num == len(test_dataset))
     print('\n')
 
-    id = test_id
     predict = np.concatenate(test_predict)
     if test_dataset.mode == 'test':
-        df = pd.DataFrame(list(zip(id, predict)), columns=[
+        df = pd.DataFrame(list(zip(test_id, predict)), columns=[
                           'id', 'scalar_coupling_constant'])
         df.to_csv(csv_file, index=False)
 
-        log.write('id        = %d\n' % len(id))
+        log.write('id        = %d\n' % len(test_id))
         log.write('predict   = %d\n' % len(predict))
         log.write('csv_file  = %s\n' % csv_file)
 
@@ -137,10 +124,9 @@ def run_submit(loss_func=log_l1_loss):
         coupling_value = np.concatenate(test_coupling_value)
         coupling_type = np.concatenate(test_coupling_type).astype(np.int32)
 
-        mae, log_mae = compute_kaggle_metric(
-            predict, coupling_value, coupling_type,)
+        mae, log_mae = compute_kaggle_metric(predict, coupling_value, coupling_type)
 
-        for t in range(NUM_COUPLING_TYPE):
+        for t in range(len(coupling_types)):
             log.write('\tcoupling_type = %s\n' % COUPLING_TYPE[t])
             log.write('\tmae     =  %f\n' % mae[t])
             log.write('\tlog_mae = %+f\n' % log_mae[t])
@@ -159,5 +145,5 @@ if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
     run_submit(loss_func=log_l1_loss)
-
+    
     print('\nsuccess!')

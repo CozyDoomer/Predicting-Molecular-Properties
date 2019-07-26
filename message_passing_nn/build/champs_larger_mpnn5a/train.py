@@ -1,6 +1,5 @@
 from dataset import *
 from model import *
-from losses import *
 from common import *
 import os
 import gc
@@ -67,7 +66,7 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
 
 def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None, 
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', graph_dir='all_types',
-              out_dir='data/results/zzz', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN' '2JHN', '3JHN', '2JHH', '3JHH']):
+              out_dir='data/results/zzz', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     # setup  -----------------------------------------------------------------------------
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(out_dir + '/checkpoint', exist_ok=True)
@@ -137,7 +136,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     # net ----------------------------------------
     log.write('** net setting **\n')
 
-    net = LargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    net = SagPoolLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
     #net = Net(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
 
     net.apply(weights_init)
@@ -160,18 +159,21 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     # net.set_mode('train',is_freeze_bn=True)
     # -----------------------------------------------
 
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=lr)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()))
     #optimizer = torch.optim.RMSprop(net.parameters(), lr=0.0005, alpha=0.95)
     #optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=scheduler(0), momentum=0.9, weight_decay=0.0001)
 
-    scheduler = NullScheduler(lr=lr)
-    #scheduler = StepScheduler([(checkpoint_iter,       0.0001),  
-    #                           (checkpoint_iter+2500,  0.00008),  
-    #                           (checkpoint_iter+20000, 0.00006),  
-    #                           (checkpoint_iter+40000, 0.00004),  
-    #                           (checkpoint_iter+60000, 0.00002), 
-    #                           (checkpoint_iter+80000, 0.00001)])
-    #scheduler = OneCycleLR(optimizer, max_lr=lr, div_factor=25, pct_start=0.3, total_steps=num_iters)
+    #scheduler = NullScheduler(lr=lr)
+
+    #scheduler = StepScheduler([(checkpoint_iter,       0.00001),  
+    #                           (checkpoint_iter+10000, 0.00009),  
+    #                           (checkpoint_iter+20000, 0.00008),  
+    #                           (checkpoint_iter+40000, 0.00007), 
+    #                           (checkpoint_iter+60000, 0.00006), 
+    #                           (checkpoint_iter+80000, 0.00005)])
+    #print(scheduler.steps, checkpoint_iter)
+
+    scheduler = OneCycleLR(optimizer, max_lr=lr, div_factor=25, pct_start=0.3, total_steps=num_iters)
 
     iter_accum = 1
     iter_smooth = 50
@@ -188,7 +190,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             start_iter = checkpoint['iter']
             start_epoch = checkpoint['epoch']
             optimizer.load_state_dict(checkpoint['optimizer'])
-
             del checkpoint
             gc.collect()
 
@@ -200,9 +201,9 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
     log.write('** start training here! **\n')
     log.write('   batch_size =%d,  iter_accum=%d\n' % (batch_size, iter_accum))
-    log.write('                      |--------------- VALID ----------------------------------------------------------------|-- TRAIN/BATCH ---------\n')
-    log.write('                      |std %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f   %4.1f  |                    |        | \n' % tuple(COUPLING_TYPE_STD))
-    log.write('lr       iter   epoch |    1JHC,   2JHC,   3JHC,   1JHN,   2JHN,   3JHN,   2JHH,   3JHH |  loss  mae log_mae | loss   | time          \n')
+    log.write('                       |--------------- VALID ----------------------------------------------------------------|-- TRAIN/BATCH ---------\n')
+    log.write('                       |std %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f   %4.1f  |                    |        | \n' % tuple(COUPLING_TYPE_STD))
+    log.write('lr        iter   epoch |    1JHC,   2JHC,   3JHC,   1JHN,   2JHN,   3JHN,   2JHH,   3JHH |  loss  mae log_mae | loss   | time          \n')
     log.write('--------------------------------------------------------------------------------------------------------------------------------------\n')
 
     train_loss = np.zeros(20, np.float32)
@@ -232,8 +233,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
                 log.write('Negative learning rate!\n')
                 break
 
-            adjust_learning_rate(optimizer, lr)
-            #adjust_max_learning_rate(optimizer, lr) # for OneCycleLR scheduler
+            #adjust_learning_rate(optimizer, lr)
             lr = get_learning_rate(optimizer)
 
             # one iteration update  -------------
@@ -242,7 +242,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             if (iteration % iter_log == 0):
                 print('\r', end='', flush=True)
                 asterisk = '*' if iteration in iter_save and iteration != checkpoint_iter else ' '
-                log.write('%0.5f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
+                log.write('%0.6f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
                     lr, iteration/1000, asterisk, epoch,
                     *valid_loss[:11],
                     train_loss[0],
@@ -274,7 +274,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             (loss/iter_accum).backward()
             if (iteration % iter_accum) == 0:
                 optimizer.step()
-                #scheduler.step(iteration)
+                scheduler.step(iteration-start_iter)
 
             # print statistics  ------------
             batch_loss[:1] = [loss.item()]
@@ -287,7 +287,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
             print('\r', end='', flush=True)
             asterisk = ' '
-            print('%0.5f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
+            print('%0.6f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
                 lr, iteration/1000, asterisk, epoch,
                 *valid_loss[:11],
                 batch_loss[0],
@@ -300,15 +300,15 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/3JHN'
-    checkpoint_path = get_path() + 'data/results/3JHN/checkpoint/00000000_model.pth'
+    output_directory = get_path() + 'data/results/all_types'
+    checkpoint_path = get_path() + 'data/results/all_types/checkpoint/00232500_model.pth'
 
     #TODO: try training per coupling type / groups 
-    #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
-    coupling_types = ['3JHN']
+    #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
+    coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300*1000, batch_size=16, coupling_types=coupling_types,
-              split_train='train_split_by_mol.42774.npy', split_valid='valid_split_by_mol.3000.npy', 
-              initial_checkpoint=None, graph_dir='3JHN', out_dir=output_directory)
+    run_train(lr=0.0002, loss_func=log_l1_loss, num_iters=340*1000, batch_size=10, coupling_types=coupling_types,
+              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
+              initial_checkpoint=checkpoint_path, graph_dir='all_types', out_dir=output_directory)
 
     print('\nsuccess!')

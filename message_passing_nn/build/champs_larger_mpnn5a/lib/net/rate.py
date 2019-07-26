@@ -63,7 +63,7 @@ class StepScheduler():
 
     def __str__(self):
         string = 'Step Learning Rates\n' \
-                + 'rates=' + str(['%7.4f' % i for i in self.rates]) + '\n' \
+                + 'rates=' + str(['%7.5f' % i for i in self.rates]) + '\n' \
                 + 'steps=' + str(['%7.0f' % i for i in self.steps]) + ''
         return string
 

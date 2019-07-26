@@ -4,7 +4,7 @@ import pandas as pd
 from common import get_path, get_data_path
 
 def run_ensamble():
-    ensemble_file = get_path() + 'data/submission/ensamble/submit-ensemble-JHC-all_types3.csv'
+    ensemble_file = get_path() + 'data/submission/ensamble/mpnn-ensemble-sagpool.csv'
 
     df_test = pd.read_csv(get_data_path() + 'test.csv')            
 
@@ -19,6 +19,8 @@ def run_ensamble():
 
     subs = [(['3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'],
               get_path() + 'data/submission/zzz/submit/submit-00325000_model-larger.csv'),
+            (['2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'],
+              get_path() + 'data/submission/all_types/submit/sagpooling_larger_mpnn-175.csv'),
             (['1JHC', '2JHC', '3JHC'],
               get_path() + 'data/submission/all_JHC/submit/submit-00237500_model-larger.csv')]
 
@@ -41,11 +43,11 @@ if __name__ == '__main__':
 
     run_ensamble()
 
-    asdf1 = pd.read_csv(get_path() + 'data/submission/ensamble/submit-ensemble-JHC-all_types3.csv')
-    asdf2 = pd.read_csv(get_path() + 'data/submission/zzz/submit/submit-00325000_model-larger.csv')
-
-    print(asdf1.describe())
-    print(asdf2.describe())
-    print(asdf1.scalar_coupling_constant.mean()-asdf2.scalar_coupling_constant.mean())
+    #asdf1 = pd.read_csv(get_path() + 'data/submission/ensamble/mpnn-ensemble-sagpool.csv')
+    #asdf2 = pd.read_csv(get_path() + 'data/submission/zzz/submit/submit-00325000_model-larger.csv')
+ 
+    #print(asdf1.describe())
+    #print(asdf2.describe())
+    #print(asdf1.scalar_coupling_constant.mean()-asdf2.scalar_coupling_constant.mean())
 
     print('\nsuccess!')

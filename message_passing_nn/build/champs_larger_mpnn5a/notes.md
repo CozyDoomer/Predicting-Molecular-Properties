@@ -12,7 +12,7 @@
 
 ## TODO
 
-- try out of fold fc values for train and test 
+- more features (look at giba features)
 
 - find better angle features 
     - right now it is:
@@ -21,4 +21,8 @@
     - there are calculations for cosine and dehidral seperatly
     - cosine would benefit 2J couplings and dehidral 3J
 
-- try training per coupling type / groups ['1JHC', '2JHC', '3JHC']
+- try training per coupling type / groups ['1JHC', '2JHC', '3JHC'] (in progress)
+
+- try out sagpooling instead of set2set (in progress)
+
+- try different structure from pytorch geometric (GraphConv?)
