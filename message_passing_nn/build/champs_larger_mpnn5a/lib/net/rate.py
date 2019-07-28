@@ -53,7 +53,6 @@ class StepScheduler():
         self.steps = steps
 
     def __call__(self, epoch):
-
         N = len(self.steps)
         lr = -1
         for n in range(N):
@@ -66,6 +65,9 @@ class StepScheduler():
                 + 'rates=' + str(['%7.5f' % i for i in self.rates]) + '\n' \
                 + 'steps=' + str(['%7.0f' % i for i in self.steps]) + ''
         return string
+
+    def step(self, epoch=None):
+        pass
 
 
 ## https://github.com/pytorch/tutorials/blob/master/beginner_source/transfer_learning_tutorial.py
@@ -258,6 +260,11 @@ class NullScheduler():
 def adjust_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+def adjust_betas(optimizer, beta1, beta2):
+    for param_group in optimizer.param_groups:
+        print(param_group['betas'])
+        param_group['betas'] = (beta1, beta2)
 
 def adjust_max_learning_rate(optimizer, max_lr):
     for param_group in optimizer.param_groups:
