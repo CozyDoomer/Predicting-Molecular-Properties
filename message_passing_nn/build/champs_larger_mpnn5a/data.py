@@ -1,5 +1,6 @@
 import scipy
 from sklearn import preprocessing
+from sklearn.decomposition import PCA
 import networkx as nx
 from collections import defaultdict
 from common import *
@@ -9,6 +10,7 @@ from rdkit.Chem import AllChem, ChemicalFeatures
 from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
+import qml
 
 DrawingOptions.bondLineWidth = 1.8
 
@@ -38,6 +40,9 @@ COUPLING_TYPE = [COUPLING_TYPE_STATS[i*5] for i in range(NUM_COUPLING_TYPE)]
 # ---
 
 SYMBOL = ['H', 'C', 'N', 'O', 'F']
+
+R = {'H':0.38,'C':0.77,'N':0.75,'O':0.73,'F':0.71}
+E = {'H':2.2,'C':2.55,'N':3.04,'O':3.44,'F':3.98}
 
 BOND_TYPE = [
     Chem.rdchem.BondType.SINGLE,
@@ -106,14 +111,15 @@ def filter_dataframes(df, coupling_types=None):
     return df
 
 
-def load_csv(coupling_types=None):
+def load_csv(coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     DATA_DIR = get_data_path()
 
     # structure
-    df_structure = pd.read_csv(DATA_DIR + 'structures.csv')
+    structure = pd.read_csv(DATA_DIR + 'structures.csv')
+    yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
+    df_structure = pd.concat([structure, yukawa], axis=1)
     #df_angles = pd.read_csv(DATA_DIR + '/angles.csv')
 
-    # coupling
     df_train = pd.read_csv(DATA_DIR + 'train.csv')
     df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
@@ -122,21 +128,21 @@ def load_csv(coupling_types=None):
 
     df_test['scalar_coupling_constant'] = 0
     df_scalar_coupling = pd.concat([df_train, df_test])
-    df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
-    df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
-                                  how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0', 'type'])
+
+    #df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
+    #df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
+    #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0', 'type'])
     #df_scalar_coupling_angles = pd.merge(df_scalar_coupling, df_angles,
     #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1', 'atom_index_0'])
 
-    df_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
-    #for key, item in df_scalar_coupling:
-    #    print(df_scalar_coupling.get_group(key), "\n\n")
+    gb_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
+    
     gb_structure = df_structure.groupby('molecule_name')
 
-    return gb_structure, df_scalar_coupling
+    return gb_structure, gb_scalar_coupling
 
 
-def run_convert_to_graph(graph_dir='all_types', coupling_types=None):
+def run_convert_to_graph(graph_dir='all_types', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     graph_dir = get_path() + 'data/graphs/' + graph_dir
     os.makedirs(graph_dir, exist_ok=True)
 
@@ -145,6 +151,7 @@ def run_convert_to_graph(graph_dir='all_types', coupling_types=None):
     molecule_names = np.sort(molecule_names)
 
     param = []
+
     for i, molecule_name in enumerate(molecule_names):
         graph_file = graph_dir + '/%s.pickle' % molecule_name
         p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
@@ -175,7 +182,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
 
     coupling = Struct(
         id=df.id.values,
-        contribution=df[['fc', 'sd', 'pso', 'dso']].values,
+        #contribution=df[['fc', 'sd', 'pso', 'dso']].values,
         index=df[['atom_index_0', 'atom_index_1']].values,
         #type = np.array([ one_hot_encoding(t,COUPLING_TYPE) for t in df.type.values ], np.uint8)
         type=np.array([COUPLING_TYPE.index(t) for t in df.type.values], np.int32),
@@ -189,6 +196,12 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     a = df.atom.values.tolist()
     xyz = df[['x', 'y', 'z']].values
     mol = mol_from_axyz(a, xyz)
+
+    yukawa_charges = df[['dist_C_0', 'dist_C_1', 'dist_C_2', 'dist_C_3', 'dist_C_4', 'dist_F_0',
+                         'dist_F_1', 'dist_F_2', 'dist_F_3', 'dist_F_4', 'dist_H_0', 'dist_H_1',
+                         'dist_H_2', 'dist_H_3', 'dist_H_4', 'dist_N_0', 'dist_N_1', 'dist_N_2',
+                         'dist_N_3', 'dist_N_4', 'dist_O_0', 'dist_O_1', 'dist_O_2', 'dist_O_3',
+                         'dist_O_4']].values
 
     # ---
     assert(a == [mol.GetAtomWithIdx(i).GetSymbol()
@@ -210,9 +223,25 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     num_h = np.zeros((num_atom, 1), np.float32)  # real
     atomic = np.zeros((num_atom, 1), np.float32)
 
+    # new features
+    radius = np.zeros((num_atom, 1), np.float32)  
+    e = np.zeros((num_atom, 1), np.float32) 
+
+    yukawa = np.zeros((num_atom, 25), np.float32) 
+    #coulomb_matrix = np.zeros((435, 1), np.float32) 
+
+    # Create the compound object mol from the file which happens to be methane
+    #qml_mol = qml.Compound(xyz=get_data_path()+'structures/'+molecule_name+'.xyz')
+    #qml_mol.generate_coulomb_matrix(size=29, sorting="row-norm")
+    #qml_a = qml_mol.representation
+    #for j, v in enumerate(qml_a):
+    #    coulomb_matrix[j] = qml_a[j]
+    
     for i in range(num_atom):
         atom = mol.GetAtomWithIdx(i)
         symbol[i] = one_hot_encoding(atom.GetSymbol(), SYMBOL)
+        radius[i], e[i] = get_radius(atom.GetSymbol())
+        yukawa[i] = yukawa_charges[i]
         aromatic[i] = atom.GetIsAromatic()
         hybridization[i] = one_hot_encoding(
             atom.GetHybridization(), HYBRIDIZATION)
@@ -234,11 +263,11 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     edge_index = np.zeros((num_edge, 2), np.uint8)
     bond_type = np.zeros((num_edge, len(BOND_TYPE)), np.uint8)  # category
     distance = np.zeros((num_edge, 3), np.float32) 
-    
+
     #TODO: add cosinus and dehidral angles 
     angle = np.zeros((num_edge, 1), np.float32)  
     #cosinus = np.zeros((num_edge, 1), np.float32)  
-    #dehidral = np.zeros((num_edge, 1), np.float32)  
+    #dehidral = np.zeros((num_edge, 1), np.float32)
 
     norm_xyz = preprocessing.normalize(xyz, norm='l2')
 
@@ -253,7 +282,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
             if bond is not None:
                 bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
             
-            distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0)
+            distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0) 
             #distance[ij] = ((xyz[i] - xyz[j])**2).sum()**0.5 | seems to be the same
 
             angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
@@ -265,8 +294,8 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
-        node=[symbol, acceptor, donor, aromatic,
-              hybridization, num_h, atomic],
+        node=[symbol, acceptor, donor, aromatic, yukawa, #coulomb_matrix,
+              hybridization, num_h, atomic, radius, e],
         edge=[bond_type, distance, angle], 
         edge_index=edge_index,
         coupling=coupling,
@@ -292,6 +321,10 @@ def get_atom(atom):
                                 'fr', 'ra', 'ac', 'th', 'pa', 'u ', 'np', 'pu']]
     atom = atom.lower()
     return ATOM.index(atom) + 1
+
+
+def get_radius(atom):    
+    return R[atom], E[atom]
 
 
 def getUA(maxValence_list, valence_list):
@@ -728,7 +761,7 @@ def mol_from_axyz(symbol, xyz):
     return mol
 
 
-def run_make_split(num_valid, graphs='all_types', coupling_types=None):
+def run_make_split(num_valid, name='by_mol', graphs='all_types', coupling_types=None):
     split_dir = get_path() + 'data/split/'
     csv_file = get_data_path() + 'train.csv'
     os.makedirs(split_dir, exist_ok=True)
@@ -753,8 +786,8 @@ def run_make_split(num_valid, graphs='all_types', coupling_types=None):
     train_split = molecule_names[num_valid:]
     valid_split = molecule_names[:num_valid]
 
-    np.save(split_dir + 'train_split_by_mol.%d.npy' % num_train, train_split)
-    np.save(split_dir + 'valid_split_by_mol.%d.npy' % num_valid, valid_split)
+    np.save(split_dir + 'train_split_%s.%d.npy' % (name, num_train), train_split)
+    np.save(split_dir + 'valid_split_%s.%d.npy' % (name, num_valid), valid_split)
 
 
 # check #######################################################################
@@ -801,7 +834,7 @@ def run_check_0a():
     print('graph.coupling.index:', graph.coupling.index.shape)
     print('graph.coupling.type:', graph.coupling.type.shape)
     print('graph.coupling.value:', graph.coupling.value.shape)
-    print('graph.coupling.contribution:', graph.coupling.contribution.shape)
+    #print('graph.coupling.contribution:', graph.coupling.contribution.shape)
     print('graph.coupling.id:', graph.coupling.id)
     print('')
 
@@ -810,6 +843,6 @@ def run_check_0a():
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
-    coupling_types = ['3JHN']
-    run_convert_to_graph(graph_dir='3JHN', coupling_types=coupling_types)
-    run_make_split(num_valid=3000, coupling_types=coupling_types)
+    coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
+    run_convert_to_graph(graph_dir='all_types_yukawa_radius', coupling_types=coupling_types)
+    #run_make_split(num_valid=5000, name='by_mol_alt4', coupling_types=None)
