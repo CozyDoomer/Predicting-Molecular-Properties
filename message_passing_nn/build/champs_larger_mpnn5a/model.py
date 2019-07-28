@@ -458,17 +458,17 @@ class SagPoolNet(torch.nn.Module):
 
         node, hidden = self.propagate(node, edge_index, edge, hidden)
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        pool = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        pool1 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
         
-        #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, hidden, node_index)
-        #pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        node, hidden = self.propagate(node, edge_index, edge, hidden)
+        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
         #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, hidden, node_index)
+        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        #pool = pool1 + pool2 + pool3
+        pool = pool1 + pool2 #+ pool3
 
         # ---
         num_coupling = len(coupling_index)
@@ -520,17 +520,17 @@ class SagPoolLargerNet(torch.nn.Module):
 
         node = self.preprocess(node)
         hidden = node.view(1, num_node, -1)
+        
         node, hidden = self.propagate(node, edge_index, edge, hidden)
-
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         pool = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
         
         #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, hidden, node_index)
+        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         #pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
         #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, hidden, node_index)
+        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
         #pool = pool1 + pool2 + pool3
