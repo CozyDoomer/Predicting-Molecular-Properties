@@ -10,7 +10,6 @@ from rdkit.Chem import AllChem, ChemicalFeatures, rdMolTransforms
 from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
-import openbabel
 
 DrawingOptions.bondLineWidth = 1.8
 
