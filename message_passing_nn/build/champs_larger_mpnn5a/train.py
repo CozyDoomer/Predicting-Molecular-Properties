@@ -4,7 +4,7 @@ from common import *
 import os
 import gc
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
+import faulthandler; faulthandler.enable()
 
 def do_valid(net, valid_loader, loss_func=log_l1_loss):
     valid_num = 0
@@ -136,7 +136,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     # net ----------------------------------------
     log.write('** net setting **\n')
 
-    net = SagPoolLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    net = LargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
     #net = Net(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
 
     net.apply(weights_init)
@@ -165,10 +165,10 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
     #scheduler = NullScheduler(lr=lr)
 
-    #scheduler = StepScheduler([(checkpoint_iter,       0.00001),  
-    #                           (checkpoint_iter+10000, 0.00009),  
-    #                           (checkpoint_iter+20000, 0.00008),  
-    #                           (checkpoint_iter+40000, 0.00007), 
+    #scheduler = StepScheduler([(checkpoint_iter,       0.000015),  
+    #                           (checkpoint_iter+10000, 0.000012),  
+    #                           (checkpoint_iter+20000, 0.00001),  
+    #                           (checkpoint_iter+40000, 0.00008), 
     #                           (checkpoint_iter+60000, 0.00006), 
     #                           (checkpoint_iter+80000, 0.00005)])
     #print(scheduler.steps, checkpoint_iter)
@@ -180,6 +180,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     iter_log = 500
     iter_valid = 500
     iter_save = [0, num_iters-1] + list(range(0, num_iters, 2500))  # 1000
+    
     start_iter = 0
     start_epoch = 0
     if initial_checkpoint is not None:
@@ -190,6 +191,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             start_iter = checkpoint['iter']
             start_epoch = checkpoint['epoch']
             optimizer.load_state_dict(checkpoint['optimizer'])
+            #adjust_betas(optimizer, 0.9, 0.999)
             del checkpoint
             gc.collect()
 
@@ -211,7 +213,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     batch_loss = np.zeros(20, np.float32)
     iteration = 0
     i = 0
-
     start = timer()
     while iteration < num_iters:
         sum_train_loss = np.zeros(20, np.float32)
@@ -227,7 +228,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
                 valid_loss = do_valid(net, valid_loader, loss_func=loss_func)
                 torch.cuda.empty_cache()
 
-
             # learning rate scheduler -------------
             if lr < 0:
                 log.write('Negative learning rate!\n')
@@ -235,6 +235,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
             #adjust_learning_rate(optimizer, lr)
             lr = get_learning_rate(optimizer)
+            #lr = scheduler(iteration)
 
             # one iteration update  -------------
             # net.set_mode('train',is_freeze_bn=True)
@@ -274,7 +275,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             (loss/iter_accum).backward()
             if (iteration % iter_accum) == 0:
                 optimizer.step()
-                scheduler.step(iteration-start_iter)
+                scheduler.step(iteration)
 
             # print statistics  ------------
             batch_loss[:1] = [loss.item()]
@@ -300,15 +301,15 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/all_types'
-    checkpoint_path = get_path() + 'data/results/all_types/checkpoint/00232500_model.pth'
+    output_directory = get_path() + 'data/results/all_types_new_features'
+    checkpoint_path = get_path() + 'data/results/all_types_new_features/checkpoint/00020000_model.pth'
 
     #TODO: try training per coupling type / groups 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_train(lr=0.0002, loss_func=log_l1_loss, num_iters=340*1000, batch_size=10, coupling_types=coupling_types,
+    run_train(lr=0.002, loss_func=log_l1_loss, num_iters=250*1000, batch_size=36, coupling_types=coupling_types,
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
-              initial_checkpoint=checkpoint_path, graph_dir='all_types', out_dir=output_directory)
+              initial_checkpoint=None, graph_dir='all_types_new_features', out_dir=output_directory)
 
     print('\nsuccess!')

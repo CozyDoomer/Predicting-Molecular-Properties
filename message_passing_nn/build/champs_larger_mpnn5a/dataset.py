@@ -14,8 +14,8 @@ ACSF_GENERATOR = ACSF(
     g4_params = [[1, 1, 1], [1, 2, 1], [1, 1, -1], [1, 2, -1]],
 )
 
-EDGE_DIM = 8   #  7 9 6 11
-NODE_DIM = 93  # 13
+EDGE_DIM =  38   #  7 8 9 6 11 38
+NODE_DIM = 123   # 120 13 93 123
 NUM_TARGET = 8
 
 
@@ -60,16 +60,15 @@ class ChampsDataset(Dataset):
             mask += (graph.coupling.type == COUPLING_TYPE.index(t))
         
         graph.coupling.id = graph.coupling.id[mask]
-        graph.coupling.contribution = graph.coupling.contribution[mask]
+        #graph.coupling.contribution = graph.coupling.contribution[mask]
         graph.coupling.index = graph.coupling.index[mask]
         graph.coupling.type = graph.coupling.type[mask]
         graph.coupling.value = graph.coupling.value[mask]
 
         atom = System(symbols=graph.axyz[0], positions=graph.axyz[1])
         acsf = ACSF_GENERATOR.create(atom)
-
+        
         graph.node += [acsf, ]
-
         graph.node = np.concatenate(graph.node, -1)
         graph.edge = np.concatenate(graph.edge, -1)
         return graph
@@ -77,7 +76,6 @@ class ChampsDataset(Dataset):
 
 def null_collate(batch):
     batch_size = len(batch)
-
     node = []
     edge = []
     edge_index = []
@@ -153,8 +151,7 @@ def run_check_train_dataset():
         print('graph.coupling.index:', graph.coupling.index.shape)
         print('graph.coupling.type:', graph.coupling.type.shape)
         print('graph.coupling.value:', graph.coupling.value.shape)
-        print('graph.coupling.contribution:',
-              graph.coupling.contribution.shape)
+        #print('graph.coupling.contribution:', graph.coupling.contribution.shape)
         print('graph.coupling.id:', graph.coupling.id)
         print('graph.coupling.type:', graph.coupling.type)
 
