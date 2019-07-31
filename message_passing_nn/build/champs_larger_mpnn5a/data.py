@@ -64,29 +64,6 @@ def one_hot_encoding(x, set):
     return one_hot
 
 
-'''
-node_feature :
-    category 
-        one_hot_encoding(symbol,SYMBOL)  #5 
-        (acceptor,) #1
-        (donor,   ) #1
-        (aromatic,) #1
-        one_hot_encoding(hybridization,HYBRIDIZATION) #3
-    real  
-        (num_h,  ) #1
-        (atomic, ) #1
-        
-        
-edge_feature :
-    category 
-        one_hot_encoding(bond_type,BOND_TYPE)  #4 
-    real  
-        np.digitize(distance,DISTANCE) #1
-        
-'''
-###############################################################
-
-
 def compute_kaggle_metric(predict, coupling_value, coupling_type):
     mae = [None]*NUM_COUPLING_TYPE
     log_mae = [None]*NUM_COUPLING_TYPE
@@ -101,8 +78,6 @@ def compute_kaggle_metric(predict, coupling_value, coupling_type):
 
     return mae, log_mae
 
-
-###############################################################
 
 def filter_dataframes(df, coupling_types=None):
     if coupling_types is not None:

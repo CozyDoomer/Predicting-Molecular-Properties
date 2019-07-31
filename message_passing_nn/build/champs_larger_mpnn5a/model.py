@@ -11,8 +11,6 @@ from lib.net.lstm_norm import LSTM, BNLSTMCell
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
-#############################################################################
-
 
 def l2_loss(predict, coupling_value):
     predict = predict.view(-1)
@@ -133,10 +131,55 @@ class GraphConv(nn.Module):
             nn.ReLU(inplace=True),
             LinearBn(128, node_dim * node_dim)) # nn.ReLU(inplace=True),
 
-        self.predict = nn.Sequential(
-            LinearBn(node_dim, 256),
+        self.bias = nn.Parameter(torch.Tensor(node_dim))
+        self.bias.data.uniform_(-1.0 / math.sqrt(node_dim),
+                                1.0 / math.sqrt(node_dim))
+
+    def forward(self, node, edge_index, edge):
+        num_node, node_dim = node.shape
+        num_edge, edge_dim = edge.shape
+        # print(node.shape)
+        # print(edge.shape)
+        edge_index = edge_index.t().contiguous()
+
+        # 1. message :  m_j = SUM_i f(n_i, n_j, e_ij)  where i is neighbour(j)
+        x_i = torch.index_select(node, 0, edge_index[0])
+        
+        edge = self.encoder(edge).view(-1, node_dim, node_dim)
+
+        #message = x_i.view(-1,node_dim,1)*edge
+        #message = message.sum(1)
+
+        message = x_i.view(-1, 1, node_dim)@edge
+        message = message.view(-1, node_dim)
+        message = scatter_('mean', message, edge_index[1], dim_size=num_node)
+
+        message = F.relu(message + self.bias)
+
+        return message
+
+    def reset_parameters(self):
+        self.bias = nn.Parameter(torch.Tensor(self.node_dim))
+        self.bias.data.uniform_(-1.0 / math.sqrt(self.node_dim),
+                                1.0 / math.sqrt(self.node_dim))
+
+
+class GraphConvSag(nn.Module):
+    def __init__(self, node_dim, edge_dim):
+        super(GraphConvSag, self).__init__()       
+        self.node_dim = node_dim
+
+        self.encoder = nn.Sequential(
+            LinearBn(edge_dim, 256),
             nn.ReLU(inplace=True),
             LinearBn(256, 256),
+            nn.ReLU(inplace=True),
+            LinearBn(256, 128),
+            nn.ReLU(inplace=True),
+            LinearBn(128, node_dim * node_dim)) # nn.ReLU(inplace=True),
+
+        self.predict = nn.Sequential(
+            LinearBn(node_dim, 256),
             nn.ReLU(inplace=True),
             LinearBn(256, 128),
             nn.ReLU(inplace=True),
@@ -370,13 +413,13 @@ class SAGPooling(torch.nn.Module):
             neural network layer.
     """
 
-    def __init__(self, in_channels, ratio=0.5, GNN=GraphConv, min_score=None,
+    def __init__(self, in_channels, out_channel, ratio=0.5, GNN=GraphConvSag, min_score=None,
                  multiplier=1, nonlinearity=torch.tanh, **kwargs):
         super(SAGPooling, self).__init__()
 
         self.in_channels = in_channels
         self.ratio = ratio
-        self.gnn = GNN(in_channels, 8, **kwargs)
+        self.gnn = GNN(in_channels, out_channel, **kwargs)
         self.min_score = min_score
         self.multiplier = multiplier
         self.nonlinearity = nonlinearity
@@ -438,7 +481,8 @@ class SagPoolNet(torch.nn.Module):
         )
 
         self.propagate = GraphConvGru(128, edge_dim)
-        self.sag_pool = SAGPooling(128, ratio=0.8)
+        self.graph_conv = GraphConv(128, edge_dim)
+        self.sag_pool = SAGPooling(128, edge_dim, ratio=0.9)
 
         #predict coupling constant
         self.predict = nn.Sequential(
@@ -460,15 +504,15 @@ class SagPoolNet(torch.nn.Module):
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         pool1 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
         
-        node, hidden = self.propagate(node, edge_index, edge, hidden)
+        node = self.graph_conv(node, edge_index, edge)
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        node = self.graph_conv(node, edge_index, edge)
+        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        pool = pool1 + pool2 #+ pool3
+        pool = pool1 + pool2 + pool3
 
         # ---
         num_coupling = len(coupling_index)
@@ -501,7 +545,8 @@ class SagPoolLargerNet(torch.nn.Module):
         )
 
         self.propagate = GraphConvGru(256, edge_dim)
-        self.sag_pool = SAGPooling(256, ratio=0.8)
+        self.graph_conv = GraphConv(256, edge_dim)
+        self.sag_pool = SAGPooling(256, edge_dim, ratio=0.9)
 
         #predict coupling constant
         self.predict = nn.Sequential(
@@ -522,18 +567,19 @@ class SagPoolLargerNet(torch.nn.Module):
         hidden = node.view(1, num_node, -1)
         
         node, hidden = self.propagate(node, edge_index, edge, hidden)
-        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        pool = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
         
-        #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        #pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        pool1 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        
+        node = self.graph_conv(node, edge_index, edge)
+        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        #node, hidden = self.propagate(node, edge_index, edge, hidden)
-        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        node = self.graph_conv(node, edge_index, edge)
+        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        #pool = pool1 + pool2 + pool3
+        pool = pool1 + pool2 + pool3
 
         # ---
         num_coupling = len(coupling_index)
