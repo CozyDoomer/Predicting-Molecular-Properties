@@ -508,11 +508,11 @@ class SagPoolNet(torch.nn.Module):
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        node = self.graph_conv(node, edge_index, edge)
-        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        #node = self.graph_conv(node, edge_index, edge)
+        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        pool = pool1 + pool2 + pool3
+        pool = pool1 + pool2 # + pool3
 
         # ---
         num_coupling = len(coupling_index)
@@ -575,11 +575,11 @@ class SagPoolLargerNet(torch.nn.Module):
         pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
         pool2 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        node = self.graph_conv(node, edge_index, edge)
-        pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
-        pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
+        #node = self.graph_conv(node, edge_index, edge)
+        #pool, _, _, batch, _, _ = self.sag_pool(node, edge_index, edge, node_index)
+        #pool3 = torch.cat([gmp(pool, batch), gap(pool, batch)], dim=1)
 
-        pool = pool1 + pool2 + pool3
+        pool = pool1 + pool2 #+ pool3
 
         # ---
         num_coupling = len(coupling_index)

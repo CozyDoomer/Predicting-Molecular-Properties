@@ -85,7 +85,7 @@ def filter_dataframes(df, coupling_types=None):
     return df
 
 
-def load_csv(coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
+def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     DATA_DIR = get_data_path()
 
     # structure
@@ -100,10 +100,11 @@ def load_csv(coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2J
     df_train = filter_dataframes(df_train, coupling_types=coupling_types)
     df_test = filter_dataframes(df_test, coupling_types=coupling_types)
     
-    types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
-    types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
-    df_train['scalar_coupling_constant'] = (df_train['scalar_coupling_constant'] - types_mean) / types_std
-    df_test['scalar_coupling_constant'] = 0
+    if normalize_target:
+        types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
+        types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
+        df_train['scalar_coupling_constant'] = (df_train['scalar_coupling_constant'] - types_mean) / types_std
+        df_test['scalar_coupling_constant'] = 0
 
     df_scalar_coupling = pd.concat([df_train, df_test])
 
@@ -123,11 +124,12 @@ def load_csv(coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2J
     return gb_structure, gb_scalar_coupling
 
 
-def run_convert_to_graph(graph_dir='all_types', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
+def run_convert_to_graph(graph_dir='all_types', normalize_target=False, 
+                         coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     graph_dir = get_path() + 'data/graphs/' + graph_dir
     os.makedirs(graph_dir, exist_ok=True)
 
-    gb_structure, gb_scalar_coupling = load_csv(coupling_types=coupling_types)
+    gb_structure, gb_scalar_coupling = load_csv(normalize_target, coupling_types=coupling_types)
     molecule_names = list(gb_scalar_coupling.groups.keys())
     molecule_names = np.sort(molecule_names)
 
@@ -828,5 +830,5 @@ if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
-    run_convert_to_graph(graph_dir='all_types_new_features', coupling_types=coupling_types)
+    run_convert_to_graph(graph_dir='all_types_new_features', normalize_target=False, coupling_types=coupling_types)
     #run_make_split(num_valid=5000, name='by_mol_alt4', coupling_types=None)
