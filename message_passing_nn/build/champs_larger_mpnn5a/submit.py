@@ -92,7 +92,7 @@ def run_submit(loss_func=log_l1_loss, graph_dir='all_types', out_dir='data/submi
 
     # net ----------------------------------------
     log.write('** net setting **\n')
-    net = LargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    net = Set2SetLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
 
     log.write('\tinitial_checkpoint = %s\n' % initial_checkpoint)
     net.load_state_dict(torch.load(get_path() + initial_checkpoint,

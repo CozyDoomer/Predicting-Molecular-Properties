@@ -136,8 +136,8 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     # net ----------------------------------------
     log.write('** net setting **\n')
 
-    net = LargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
-    #net = Net(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    #net = SagPoolLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
+    net = Set2SetLargerNet(node_dim=NODE_DIM, edge_dim=EDGE_DIM, num_target=NUM_TARGET).cuda()
 
     net.apply(weights_init)
 
@@ -304,12 +304,11 @@ if __name__ == '__main__':
     output_directory = get_path() + 'data/results/all_types_new_features'
     checkpoint_path = get_path() + 'data/results/all_types_new_features/checkpoint/00007500_model.pth'
 
-    #TODO: try training per coupling type / groups 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=30, coupling_types=coupling_types,
+    run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=16, coupling_types=coupling_types,
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
-              initial_checkpoint=checkpoint_path, graph_dir='all_types_new_features', out_dir=output_directory)
+              initial_checkpoint=None, graph_dir='all_types_selected_features', out_dir=output_directory)
 
     print('\nsuccess!')

@@ -13,9 +13,7 @@ from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
 
 DrawingOptions.bondLineWidth = 1.8
 
-
 ## feature extraction #####################################################
-
 
 COUPLING_TYPE_STATS = [
     # type   #mean, std, min, max
@@ -106,8 +104,10 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
         df_train['scalar_coupling_constant'] = (df_train['scalar_coupling_constant'] - types_mean) / types_std
         df_test['scalar_coupling_constant'] = 0
 
-    df_scalar_coupling = pd.concat([df_train, df_test])
+    df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
 
+    ### scalar coupling contribution is not used here because we don't know the values for the test set
+    #  
     #df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
     #df_scalar_coupling = pd.merge(df_scalar_coupling, df_scalar_coupling_contribution,
     #                              how='left', on=['molecule_name', 'atom_index_0', 'atom_index_1' 'type'])
@@ -205,32 +205,16 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     num_h = np.zeros((num_atom, 1), np.float32)  # real
     atomic = np.zeros((num_atom, 1), np.float32)
 
-    # new features
-    mass = np.zeros((num_atom, 1), np.float32)
+    # these features seemed to help 
     radius = np.zeros((num_atom, 1), np.float32)  
     e = np.zeros((num_atom, 1), np.float32) 
+    yukawa = np.zeros((num_atom, 25), np.float32) 
+    # these features are new 
+    mass = np.zeros((num_atom, 1), np.float32)
     degree = np.zeros((num_atom, 1), np.uint8)
     valence = np.zeros((num_atom, 1), np.uint8)
-    ring = np.zeros((num_atom, 1), np.uint8)
+    in_ring = np.zeros((num_atom, 1), np.uint8)
 
-    yukawa = np.zeros((num_atom, 25), np.float32) 
-    
-    for i in range(num_atom):
-        atom = mol.GetAtomWithIdx(i)
-        symbol[i] = one_hot_encoding(atom.GetSymbol(), SYMBOL)
-        aromatic[i] = atom.GetIsAromatic()
-        hybridization[i] = one_hot_encoding(
-            atom.GetHybridization(), HYBRIDIZATION)
-        num_h[i] = atom.GetTotalNumHs(includeNeighbors=True)
-        atomic[i] = atom.GetAtomicNum()
-
-        radius[i], e[i] = get_radius(atom.GetSymbol())
-        mass[i] = atom.GetMass()
-        degree[i] = atom.GetDegree()
-        valence[i] = atom.GetTotalValence()
-        ring[i] = atom.IsInRing()
-        yukawa[i] = yukawa_charges[i]
-    #[f.GetFamily() for f in feature]
     for t in range(0, len(feature)):
         if feature[t].GetFamily() == 'Donor':
             for i in feature[t].GetAtomIds():
@@ -239,6 +223,24 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
             for i in feature[t].GetAtomIds():
                 acceptor[i] = 1
 
+    for i in range(num_atom):
+        atom = mol.GetAtomWithIdx(i)
+        symbol[i] = one_hot_encoding(atom.GetSymbol(), SYMBOL)
+        aromatic[i] = atom.GetIsAromatic()
+        hybridization[i] = one_hot_encoding(
+            atom.GetHybridization(), HYBRIDIZATION)
+        num_h[i] = atom.GetTotalNumHs(includeNeighbors=True)
+        atomic[i] = atom.GetAtomicNum()
+        # these features seemed to help 
+        radius[i], e[i] = get_radius(atom.GetSymbol())
+        yukawa[i] = yukawa_charges[i]
+        ###### these features are new #######
+        mass[i] = atom.GetMass()
+        degree[i] = atom.GetDegree()
+        valence[i] = atom.GetTotalValence()
+        in_ring[i] = atom.IsInRing()
+        ######################################
+
     # ** edge **
     num_edge = num_atom*num_atom - num_atom
     edge_index = np.zeros((num_edge, 2), np.uint8)
@@ -246,7 +248,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     distance = np.zeros((num_edge, 3), np.float64) 
     angle = np.zeros((num_edge, 1), np.float32) 
 
-    valence_contrib = np.zeros((num_edge, 29), np.uint8) 
+    #valence_contrib = np.zeros((num_edge, 29), np.uint8) 
     conjugated = np.zeros((num_edge, 1), np.uint8) 
 
     norm_xyz = preprocessing.normalize(xyz, norm='l2')
@@ -263,26 +265,27 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
                 bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
                 conjugated[ij] = bond.GetIsConjugated()
 
-                valence = []
-                for k in range(num_atom):
-                    atom = mol.GetAtomWithIdx(k)
-                    valence.append(int(bond.GetValenceContrib(atom)*2))
-                while len(valence) < 29:
-                    valence.append(0)
-                valence_contrib[ij] = valence
+                ### seemed not to help, probably doing the feature extraction wrong here
+                #valence = []
+                #for k in range(num_atom):
+                #    atom = mol.GetAtomWithIdx(k)
+                #    valence.append(int(bond.GetValenceContrib(atom)*2))
+                #while len(valence) < 29:
+                #    valence.append(0)
+                #valence_contrib[ij] = valence
             
             distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0) 
             angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
             ij += 1
     # -------------------
-    #sys.exit()
+
     graph = Struct(
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
         node=[symbol, acceptor, donor, aromatic, yukawa, degree,
-              hybridization, num_h, atomic, radius, e, mass, ring],
-        edge=[bond_type, distance, angle, valence_contrib, conjugated], 
+              hybridization, num_h, atomic, radius, e, mass, in_ring],
+        edge=[bond_type, distance, angle, conjugated], #valence_contrib
         edge_index=edge_index,
         coupling=coupling,
     )
@@ -722,7 +725,6 @@ H -0.5238136345 1.4379326443 0.9063972942
 
 '''
 
-
 def read_champs_xyz(xyz_file):
     line = read_list_from_file(xyz_file, comment=None)
     num_atom = int(line[0])
@@ -809,7 +811,6 @@ def run_check_0a():
     molecule_name = 'dsgdb9nsd_000001'
     graph = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
 
-    print('')
     print(graph)
     print('graph.molecule_name:', graph.molecule_name)
     print('graph.smiles:', graph.smiles)
@@ -822,7 +823,6 @@ def run_check_0a():
     print('graph.coupling.value:', graph.coupling.value.shape)
     #print('graph.coupling.contribution:', graph.coupling.contribution.shape)
     print('graph.coupling.id:', graph.coupling.id)
-    print('')
 
 
 # main #################################################################
@@ -830,5 +830,4 @@ if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
-    run_convert_to_graph(graph_dir='all_types_new_features', normalize_target=False, coupling_types=coupling_types)
-    #run_make_split(num_valid=5000, name='by_mol_alt4', coupling_types=None)
+    run_convert_to_graph(graph_dir='all_types_selected_features', normalize_target=False, coupling_types=coupling_types)

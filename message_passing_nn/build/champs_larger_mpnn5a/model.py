@@ -323,9 +323,9 @@ class Net(torch.nn.Module):
 
 
 # message passing
-class LargerNet(torch.nn.Module):
+class Set2SetLargerNet(torch.nn.Module):
     def __init__(self, node_dim=13, edge_dim=5, num_target=8):
-        super(LargerNet, self).__init__()
+        super(Set2SetLargerNet, self).__init__()
         self.num_propagate = 1
         self.num_s2s = 1
 

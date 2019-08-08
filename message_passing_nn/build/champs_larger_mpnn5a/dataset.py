@@ -4,18 +4,22 @@ from data import *
 from dscribe.descriptors import ACSF
 from dscribe.core.system import System
 
+#ACSF_GENERATOR = ACSF(
+#    species=SYMBOL,
+#    rcut=6.0, 
+#    g2_params = [[1, 1], [1, 2], [1, 3]],
+#    g4_params = [[1, 1, 1], [1, 2, 1], [1, 1, -1], [1, 2, -1]],
+#)
+
 ACSF_GENERATOR = ACSF(
     species=SYMBOL,
-    rcut=6.0, #10.0
-    #g2_params = [[1, 2], [0.1, 2], [0.01, 2], [1, 6], [0.1, 6], [0.01, 6]], 
-    #g4_params = [[1, 4,  1], [0.1, 4,  1], [0.01, 4,  1], 
-    #             [1, 4, -1], [0.1, 4, -1], [0.01, 4, -1]] 
-    g2_params = [[1, 1], [1, 2], [1, 3]],
-    g4_params = [[1, 1, 1], [1, 2, 1], [1, 1, -1], [1, 2, -1]],
+    rcut=10.0, 
+    g2_params = [[15, 0.5], [1.5, 0.5], [0.15, 0.5], [15, 2], [1.5, 2], [0.15, 2]],
+    g4_params = [[1, 5, 1], [0.1, 5, 1], [0.01, 5, 1], [1, 5, -1], [0.1, 5, -1], [0.01, 5, -1]],
 )
 
-EDGE_DIM =  38   #  7 8 9 6 11 38
-NODE_DIM = 123   # 120 13 93 123
+EDGE_DIM =   9   #  7 8 9 6 11 38
+NODE_DIM = 168   # 120 13 93 123
 NUM_TARGET = 8
 
 
