@@ -88,6 +88,8 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
 
     # structure
     structure = pd.read_csv(DATA_DIR + 'structures.csv')
+    
+    ### https://www.kaggle.com/scaomath/parallelization-of-coulomb-yukawa-interaction
     yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
 
     df_structure = pd.concat([structure, yukawa], axis=1)
