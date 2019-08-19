@@ -1,10 +1,12 @@
+import faulthandler
 from dataset import *
 from model import *
 from common import *
 import os
 import gc
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-import faulthandler; faulthandler.enable()
+faulthandler.enable()
+
 
 def do_valid(net, valid_loader, loss_func=log_l1_loss):
     valid_num = 0
@@ -27,7 +29,6 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
             predict = net(node, edge, edge_index, node_index, coupling_index)
             loss = loss_func(predict, coupling_value)
 
-        # ---
         batch_size = len(infor)
         valid_predict.append(predict.data.cpu().numpy())
         valid_coupling_type.append(coupling_index[:, 2].data.cpu().numpy())
@@ -36,10 +37,8 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
         valid_loss += batch_size*loss.item()
         valid_num += batch_size
 
-        print('\r %8d /%8d' %
-              (valid_num, len(valid_loader.dataset)), end='', flush=True)
+        print('\r %8d /%8d' % (valid_num, len(valid_loader.dataset)), end='', flush=True)
 
-        pass  # -- end of one data loader --
     assert(valid_num == len(valid_loader.dataset))
 
     valid_loss = valid_loss/valid_num
@@ -64,7 +63,7 @@ def do_valid(net, valid_loader, loss_func=log_l1_loss):
     return valid_loss
 
 
-def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None, 
+def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, initial_checkpoint=None,
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', graph_dir='all_types',
               out_dir='data/results/zzz', coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
     # setup  -----------------------------------------------------------------------------
@@ -98,7 +97,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     )
     train_loader = DataLoader(
         train_dataset,
-        #sampler=SequentialSampler(train_dataset),
+        # sampler=SequentialSampler(train_dataset),
         sampler=RandomSampler(train_dataset),
         batch_size=batch_size,
         drop_last=True,
@@ -118,7 +117,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     )
     valid_loader = DataLoader(
         valid_dataset,
-        #sampler=SequentialSampler(valid_dataset),
+        # sampler=SequentialSampler(valid_dataset),
         sampler=RandomSampler(valid_dataset),
         batch_size=batch_size,
         drop_last=False,
@@ -144,8 +143,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     log.write('\tinitial_checkpoint = %s\n' % initial_checkpoint)
     if initial_checkpoint is not None:
         checkpoint_iter = int(initial_checkpoint.split('/')[-1][:-10])
-        net.load_state_dict(torch.load(initial_checkpoint,
-                                       map_location=lambda storage, loc: storage))
+        net.load_state_dict(torch.load(initial_checkpoint, map_location=lambda storage, loc: storage))
     else:
         checkpoint_iter = -1
 
@@ -164,15 +162,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     #optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=scheduler(0), momentum=0.9, weight_decay=0.0001)
 
     #scheduler = NullScheduler(lr=lr)
-
-    #scheduler = StepScheduler([(checkpoint_iter,       0.000015),  
-    #                           (checkpoint_iter+10000, 0.000012),  
-    #                           (checkpoint_iter+20000, 0.00001),  
-    #                           (checkpoint_iter+40000, 0.00008), 
-    #                           (checkpoint_iter+60000, 0.00006), 
-    #                           (checkpoint_iter+80000, 0.00005)])
-    #print(scheduler.steps, checkpoint_iter)
-
     scheduler = OneCycleLR(optimizer, max_lr=lr, div_factor=25, pct_start=0.3, total_steps=num_iters)
 
     iter_accum = 1
@@ -180,12 +169,11 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     iter_log = 500
     iter_valid = 500
     iter_save = [0, num_iters-1] + list(range(0, num_iters, 2500))  # 1000
-    
+
     start_iter = 0
     start_epoch = 0
     if initial_checkpoint is not None:
-        initial_optimizer = initial_checkpoint.replace(
-            '_model.pth', '_optimizer.pth')
+        initial_optimizer = initial_checkpoint.replace('_model.pth', '_optimizer.pth')
         if os.path.exists(initial_optimizer):
             checkpoint = torch.load(initial_optimizer)
             start_iter = checkpoint['iter']
@@ -198,8 +186,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     log.write('optimizer\n  %s\n' % (optimizer))
     log.write('scheduler\n  %s\n' % (scheduler))
     log.write('\n')
-
-    ## start training here! ##############################################
 
     log.write('** start training here! **\n')
     log.write('   batch_size =%d,  iter_accum=%d\n' % (batch_size, iter_accum))
@@ -221,8 +207,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
         for node, edge, edge_index, node_index, coupling_value, coupling_index, infor in train_loader:
             batch_size = len(infor)
             iteration = i + start_iter
-            epoch = (iteration - start_iter) * batch_size / \
-                len(train_dataset) + start_epoch
+            epoch = (iteration - start_iter) * batch_size / len(train_dataset) + start_epoch
 
             if (iteration % iter_valid == 0):
                 valid_loss = do_valid(net, valid_loader, loss_func=loss_func)
@@ -237,9 +222,6 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             lr = get_learning_rate(optimizer)
             #lr = scheduler(iteration)
 
-            # one iteration update  -------------
-            # net.set_mode('train',is_freeze_bn=True)
-
             if (iteration % iter_log == 0):
                 print('\r', end='', flush=True)
                 asterisk = '*' if iteration in iter_save and iteration != checkpoint_iter else ' '
@@ -252,8 +234,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
                 log.write('\n')
 
             if iteration in iter_save and iteration != checkpoint_iter:
-                torch.save(net.state_dict(), out_dir +
-                           '/checkpoint/%08d_model.pth' % (iteration))
+                torch.save(net.state_dict(), out_dir + '/checkpoint/%08d_model.pth' % (iteration))
                 torch.save({
                     'optimizer': optimizer.state_dict(),
                     'iter': iteration,
@@ -301,14 +282,15 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/all_types_new_features'
-    checkpoint_path = get_path() + 'data/results/all_types_new_features/checkpoint/00007500_model.pth'
+    output_directory = get_path() + 'data/results/all_types_selecting_features'
+    checkpoint_path = get_path() + \
+        'data/results/all_types_selecting_features/checkpoint/00327500_model.pth'
 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=16, coupling_types=coupling_types,
-              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy', 
-              initial_checkpoint=None, graph_dir='all_types_selected_features', out_dir=output_directory)
+    run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=15, coupling_types=coupling_types,
+              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy',
+              initial_checkpoint=checkpoint_path, graph_dir='all_types_selecting_features', out_dir=output_directory)
 
     print('\nsuccess!')
