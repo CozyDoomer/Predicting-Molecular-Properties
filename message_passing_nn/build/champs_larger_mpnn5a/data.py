@@ -39,7 +39,7 @@ COUPLING_TYPE = [COUPLING_TYPE_STATS[i*5] for i in range(NUM_COUPLING_TYPE)]
 SYMBOL = ['H', 'C', 'N', 'O', 'F']
 
 R = {'H':0.38,'C':0.77,'N':0.75,'O':0.73,'F':0.71}
-E = {'H':2.2,'C':2.55,'N':3.04,'O':3.44,'F':3.98}
+electro_negativity = {'H':2.2,'C':2.55,'N':3.04,'O':3.44,'F':3.98}
 
 BOND_TYPE = [
     Chem.rdchem.BondType.SINGLE,
@@ -209,7 +209,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
 
     # these features seemed to help 
     radius = np.zeros((num_atom, 1), np.float32)  
-    e = np.zeros((num_atom, 1), np.float32) 
+    elec_negativity = np.zeros((num_atom, 1), np.float32) 
     yukawa = np.zeros((num_atom, 25), np.float32) 
     # these features are new 
     mass = np.zeros((num_atom, 1), np.float32)
@@ -234,7 +234,8 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         num_h[i] = atom.GetTotalNumHs(includeNeighbors=True)
         atomic[i] = atom.GetAtomicNum()
         # these features seemed to help 
-        radius[i], e[i] = get_radius(atom.GetSymbol())
+        radius[i] = get_radius(atom.GetSymbol())
+        elec_negativity[i] = get_electro_negativity(atom.GetSymbol())
         yukawa[i] = yukawa_charges[i]
         ###### these features are new #######
         mass[i] = atom.GetMass()
@@ -266,15 +267,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
             if bond is not None:
                 bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
                 conjugated[ij] = bond.GetIsConjugated()
-
-                ### seemed not to help, probably doing the feature extraction wrong here
-                #valence = []
-                #for k in range(num_atom):
-                #    atom = mol.GetAtomWithIdx(k)
-                #    valence.append(int(bond.GetValenceContrib(atom)*2))
-                #while len(valence) < 29:
-                #    valence.append(0)
-                #valence_contrib[ij] = valence
             
             distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0) 
             angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
@@ -286,8 +278,8 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
         node=[symbol, acceptor, donor, aromatic, yukawa, degree,
-              hybridization, num_h, atomic, radius, e, mass, in_ring],
-        edge=[bond_type, distance, angle, conjugated], #valence_contrib
+              hybridization, num_h, atomic, radius, elec_negativity, mass, in_ring],
+        edge=[bond_type, distance, angle, conjugated],
         edge_index=edge_index,
         coupling=coupling,
     )
@@ -315,8 +307,10 @@ def get_atom(atom):
 
 
 def get_radius(atom):    
-    return R[atom], E[atom]
+    return R[atom]
 
+def get_electro_negativity(atom):
+    return electro_negativity[atom]
 
 def getUA(maxValence_list, valence_list):
     UA = []

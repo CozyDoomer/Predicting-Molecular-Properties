@@ -283,14 +283,13 @@ if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
     output_directory = get_path() + 'data/results/all_types_selecting_features'
-    checkpoint_path = get_path() + \
-        'data/results/all_types_selecting_features/checkpoint/00327500_model.pth'
+    checkpoint_path = get_path() + 'data/results/all_types_selecting_features/checkpoint/00350000_model.pth'
 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
     run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=15, coupling_types=coupling_types,
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy',
-              initial_checkpoint=checkpoint_path, graph_dir='all_types_selecting_features', out_dir=output_directory)
+              initial_checkpoint=None, graph_dir='all_types_selecting_features', out_dir=output_directory)
 
     print('\nsuccess!')

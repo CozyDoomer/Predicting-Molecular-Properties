@@ -288,7 +288,7 @@ class Net(torch.nn.Module):
 
         #predict coupling constant
         self.predict = nn.Sequential(
-            LinearBn(512, 1024),  #node_hidden_dim
+            LinearBn(512, 1024),
             nn.ReLU(inplace=True),
             LinearBn(1024, 512),
             nn.ReLU(inplace=True),
@@ -343,7 +343,7 @@ class Set2SetLargerNet(torch.nn.Module):
 
         #predict coupling constant
         self.predict = nn.Sequential(
-            LinearBn(1024, 2048),  #node_hidden_dim
+            LinearBn(1024, 2048),
             nn.ReLU(inplace=True),
             LinearBn(2048, 1024),
             nn.ReLU(inplace=True),
@@ -368,13 +368,10 @@ class Set2SetLargerNet(torch.nn.Module):
         coupling_atom0_index, coupling_atom1_index, coupling_type_index, coupling_batch_index = \
             torch.split(coupling_index, 1, dim=1)
 
-        pool = torch.index_select(
-            pool, dim=0, index=coupling_batch_index.view(-1))
-        node0 = torch.index_select(
-            node, dim=0, index=coupling_atom0_index.view(-1))
-        node1 = torch.index_select(
-            node, dim=0, index=coupling_atom1_index.view(-1))
-
+        pool =  torch.index_select(pool, dim=0, index=coupling_batch_index.view(-1))
+        node0 = torch.index_select(node, dim=0, index=coupling_atom0_index.view(-1))
+        node1 = torch.index_select(node, dim=0, index=coupling_atom1_index.view(-1))
+        
         predict = self.predict(torch.cat([pool, node0, node1], -1))
         predict = torch.gather(predict, 1, coupling_type_index).view(-1)
         return predict
@@ -486,7 +483,7 @@ class SagPoolNet(torch.nn.Module):
 
         #predict coupling constant
         self.predict = nn.Sequential(
-            LinearBn(512, 1024),  #node_hidden_dim
+            LinearBn(512, 1024),
             nn.ReLU(inplace=True),
             LinearBn(1024, 512),
             nn.ReLU(inplace=True),
@@ -550,7 +547,7 @@ class SagPoolLargerNet(torch.nn.Module):
 
         #predict coupling constant
         self.predict = nn.Sequential(
-            LinearBn(1024, 2048),  #node_hidden_dim
+            LinearBn(1024, 2048),
             nn.ReLU(inplace=True),
             LinearBn(2048, 1024),
             nn.ReLU(inplace=True),
