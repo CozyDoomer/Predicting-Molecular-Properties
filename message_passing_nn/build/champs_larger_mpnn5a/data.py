@@ -215,6 +215,18 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     degree = np.zeros((num_atom, 1), np.uint8)
     valence = np.zeros((num_atom, 1), np.uint8)
     in_ring = np.zeros((num_atom, 1), np.uint8)
+    in_ring3 = np.zeros((num_atom, 1), np.uint8)
+    in_ring4 = np.zeros((num_atom, 1), np.uint8)
+    in_ring5 = np.zeros((num_atom, 1), np.uint8)
+    in_ring6 = np.zeros((num_atom, 1), np.uint8)
+    in_ring7 = np.zeros((num_atom, 1), np.uint8)
+    in_ring8 = np.zeros((num_atom, 1), np.uint8)
+
+    nb_h = np.zeros((num_atom, 1), np.uint8)
+    nb_o = np.zeros((num_atom, 1), np.uint8)
+    nb_c = np.zeros((num_atom, 1), np.uint8)
+    nb_n = np.zeros((num_atom, 1), np.uint8)
+    nb_na = np.zeros((num_atom, 1), np.uint8)
 
     for t in range(0, len(feature)):
         if feature[t].GetFamily() == 'Donor':
@@ -228,9 +240,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         atom = mol.GetAtomWithIdx(i)
         symbol[i] = one_hot_encoding(atom.GetSymbol(), SYMBOL)
         aromatic[i] = atom.GetIsAromatic()
-        hybridization[i] = one_hot_encoding(
-            atom.GetHybridization(), HYBRIDIZATION)
-        num_h[i] = atom.GetTotalNumHs(includeNeighbors=True)
+        hybridization[i] = one_hot_encoding(atom.GetHybridization(), HYBRIDIZATION)
         atomic[i] = atom.GetAtomicNum()
         # these features seemed to help 
         radius[i] = get_radius(atom.GetSymbol())
@@ -240,6 +250,21 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         degree[i] = atom.GetDegree()
         valence[i] = atom.GetTotalValence()
         in_ring[i] = atom.IsInRing()
+
+        in_ring[i] = int(atom.IsInRing()) # is the atom in a ring?
+        in_ring3[i] = int(atom.IsInRingSize(3)) # is the atom in a ring size of 3?
+        in_ring4[i] = int(atom.IsInRingSize(4)) # is the atom in a ring size of 4?
+        in_ring5[i] = int(atom.IsInRingSize(5)) # ...
+        in_ring6[i] = int(atom.IsInRingSize(6))
+        in_ring7[i] = int(atom.IsInRingSize(7))
+        in_ring8[i] = int(atom.IsInRingSize(8))
+
+        nb = [a.GetSymbol() for a in atom.GetNeighbors()] # neighbor atom type symbols
+        nb_h[i] = sum([_ == 'H' for _ in nb]) # number of hydrogen as neighbor
+        nb_o[i] = sum([_ == 'O' for _ in nb]) # number of oxygen as neighbor
+        nb_c[i] = sum([_ == 'C' for _ in nb]) # number of carbon as neighbor
+        nb_n[i] = sum([_ == 'N' for _ in nb]) # number of nitrogen as neighbor
+        nb_na[i] = len(nb) - nb_h[i] - nb_o[i] - nb_n[i] - nb_c[i]
         ######################################
 
     # ** edge **
