@@ -17,7 +17,8 @@ DrawingOptions.bondLineWidth = 1.8
 
 COUPLING_TYPE_STATS = [
     # type   #mean, std, min, max
-    '1JHC',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
+    '1JHC_0',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
+    '1JHC_1',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
     '2JHC',  -0.2706244378832,    4.52360876732858,  -36.2186,    42.8192,
     '3JHC',   3.6884695895355,    3.07090647005439,  -18.5821,    76.0437,
     '1JHN',  47.4798844844683,   10.92204561670947,   24.3222,    80.4187,
@@ -78,9 +79,7 @@ def compute_kaggle_metric(predict, coupling_value, coupling_type):
 
 
 def filter_dataframes(df, coupling_types=None):
-    if coupling_types is not None:
-        return df.loc[df['type'].isin(coupling_types)]
-    return df
+    return df.loc[df['type'].isin(coupling_types)]
 
 
 def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']):
@@ -90,16 +89,14 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     structure = pd.read_csv(DATA_DIR + 'structures.csv')
     
     ### https://www.kaggle.com/scaomath/parallelization-of-coulomb-yukawa-interaction
-    yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
+    #yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
 
-    df_structure = pd.concat([structure, yukawa], axis=1)
+    #df_structure = pd.concat([structure, yukawa], axis=1)
+    df_structure = structure
 
-    df_train = pd.read_csv(DATA_DIR + 'train.csv')
-    df_test = pd.read_csv(DATA_DIR + 'test.csv')
+    df_train = pd.read_csv(DATA_DIR + 'train_1JHC_split.csv')
+    df_test = pd.read_csv(DATA_DIR + 'test_1JHC_split.csv')
 
-    df_train = filter_dataframes(df_train, coupling_types=coupling_types)
-    df_test = filter_dataframes(df_test, coupling_types=coupling_types)
-    
     if normalize_target:
         types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
         types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
@@ -108,6 +105,9 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
 
     df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
 
+    if coupling_types is not None:
+        df_scalar_coupling = filter_dataframes(df_scalar_coupling, coupling_types=coupling_types)
+    
     ### scalar coupling contribution is not used here because we don't know the values for the test set
     #  
     #df_scalar_coupling_contribution = pd.read_csv(DATA_DIR + 'scalar_coupling_contributions.csv')
@@ -182,11 +182,11 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     xyz = df[['x', 'y', 'z']].values
     mol = mol_from_axyz(a, xyz)
 
-    yukawa_charges = df[['dist_C_0', 'dist_C_1', 'dist_C_2', 'dist_C_3', 'dist_C_4', 'dist_F_0',
-                         'dist_F_1', 'dist_F_2', 'dist_F_3', 'dist_F_4', 'dist_H_0', 'dist_H_1',
-                         'dist_H_2', 'dist_H_3', 'dist_H_4', 'dist_N_0', 'dist_N_1', 'dist_N_2',
-                         'dist_N_3', 'dist_N_4', 'dist_O_0', 'dist_O_1', 'dist_O_2', 'dist_O_3',
-                         'dist_O_4']].values
+    #yukawa_charges = df[['dist_C_0', 'dist_C_1', 'dist_C_2', 'dist_C_3', 'dist_C_4', 'dist_F_0',
+    #                     'dist_F_1', 'dist_F_2', 'dist_F_3', 'dist_F_4', 'dist_H_0', 'dist_H_1',
+    #                     'dist_H_2', 'dist_H_3', 'dist_H_4', 'dist_N_0', 'dist_N_1', 'dist_N_2',
+    #                     'dist_N_3', 'dist_N_4', 'dist_O_0', 'dist_O_1', 'dist_O_2', 'dist_O_3',
+    #                     'dist_O_4']].values
 
     # ---
     assert(a == [mol.GetAtomWithIdx(i).GetSymbol() for i in range(mol.GetNumAtoms())])
@@ -210,7 +210,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     # these features seemed to help 
     radius = np.zeros((num_atom, 1), np.float32)  
     elec_negativity = np.zeros((num_atom, 1), np.float32) 
-    yukawa = np.zeros((num_atom, 25), np.float32) 
     # these features are new 
     mass = np.zeros((num_atom, 1), np.float32)
     degree = np.zeros((num_atom, 1), np.uint8)
@@ -236,7 +235,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         # these features seemed to help 
         radius[i] = get_radius(atom.GetSymbol())
         elec_negativity[i] = get_electro_negativity(atom.GetSymbol())
-        yukawa[i] = yukawa_charges[i]
         ###### these features are new #######
         mass[i] = atom.GetMass()
         degree[i] = atom.GetDegree()
@@ -277,8 +275,8 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
-        node=[symbol, acceptor, donor, aromatic, yukawa, degree,
-              hybridization, num_h, atomic, radius, elec_negativity, mass, in_ring],
+        node=[symbol, acceptor, donor, aromatic, degree, hybridization, #yukawa,
+              num_h, atomic, radius, elec_negativity, mass, in_ring],
         edge=[bond_type, distance, angle, conjugated],
         edge_index=edge_index,
         coupling=coupling,
@@ -747,7 +745,7 @@ def mol_from_axyz(symbol, xyz):
 
 def run_make_split(num_valid, name='by_mol', graphs='all_types', coupling_types=None):
     split_dir = get_path() + 'data/split/'
-    csv_file = get_data_path() + 'train.csv'
+    csv_file = get_data_path() + 'train_1JHC_split.csv'
     os.makedirs(split_dir, exist_ok=True)
 
     df = pd.read_csv(csv_file)
@@ -825,5 +823,7 @@ def run_check_0a():
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
-    coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
-    run_convert_to_graph(graph_dir='all_types_selected_features', normalize_target=False, coupling_types=coupling_types)
+    coupling_types = ['1JHC_0', '1JHC_1', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
+
+    #run_make_split(5000, name='1JHC_split_types', graphs='selected_features_1JHC_split', coupling_types=coupling_types)
+    run_convert_to_graph(graph_dir='selected_features_1JHC_split', normalize_target=False, coupling_types=coupling_types)

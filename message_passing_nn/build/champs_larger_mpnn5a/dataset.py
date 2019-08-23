@@ -19,8 +19,8 @@ ACSF_GENERATOR = ACSF(
 )
 
 EDGE_DIM =   9   #  7 8 9 6 11 38
-NODE_DIM = 168   # 120 13 93 123
-NUM_TARGET = 8
+NODE_DIM = 143   # 120 13 93 123
+NUM_TARGET = 9
 
 
 class ChampsDataset(Dataset):
