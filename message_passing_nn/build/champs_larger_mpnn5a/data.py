@@ -90,9 +90,9 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     structure = pd.read_csv(DATA_DIR + 'structures.csv')
     
     ### https://www.kaggle.com/scaomath/parallelization-of-coulomb-yukawa-interaction
-    yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
+    #yukawa = pd.read_csv(DATA_DIR + 'external_data/structures_yukawa.csv').fillna(0)
 
-    df_structure = pd.concat([structure, yukawa], axis=1)
+    #structure = pd.concat([structure, yukawa], axis=1)
 
     df_train = pd.read_csv(DATA_DIR + 'train.csv')
     df_test = pd.read_csv(DATA_DIR + 'test.csv')
@@ -121,7 +121,7 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
 
     gb_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
     
-    gb_structure = df_structure.groupby('molecule_name')
+    gb_structure = structure.groupby('molecule_name')
 
     return gb_structure, gb_scalar_coupling
 
@@ -182,11 +182,11 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     xyz = df[['x', 'y', 'z']].values
     mol = mol_from_axyz(a, xyz)
 
-    yukawa_charges = df[['dist_C_0', 'dist_C_1', 'dist_C_2', 'dist_C_3', 'dist_C_4', 'dist_F_0',
-                         'dist_F_1', 'dist_F_2', 'dist_F_3', 'dist_F_4', 'dist_H_0', 'dist_H_1',
-                         'dist_H_2', 'dist_H_3', 'dist_H_4', 'dist_N_0', 'dist_N_1', 'dist_N_2',
-                         'dist_N_3', 'dist_N_4', 'dist_O_0', 'dist_O_1', 'dist_O_2', 'dist_O_3',
-                         'dist_O_4']].values
+    #yukawa_charges = df[['dist_C_0', 'dist_C_1', 'dist_C_2', 'dist_C_3', 'dist_C_4', 'dist_F_0',
+    #                     'dist_F_1', 'dist_F_2', 'dist_F_3', 'dist_F_4', 'dist_H_0', 'dist_H_1',
+    #                     'dist_H_2', 'dist_H_3', 'dist_H_4', 'dist_N_0', 'dist_N_1', 'dist_N_2',
+    #                     'dist_N_3', 'dist_N_4', 'dist_O_0', 'dist_O_1', 'dist_O_2', 'dist_O_3',
+    #                     'dist_O_4']].values
 
     # ---
     assert(a == [mol.GetAtomWithIdx(i).GetSymbol() for i in range(mol.GetNumAtoms())])
@@ -210,7 +210,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     # these features seemed to help 
     radius = np.zeros((num_atom, 1), np.float32)  
     elec_negativity = np.zeros((num_atom, 1), np.float32) 
-    yukawa = np.zeros((num_atom, 25), np.float32) 
+    #yukawa = np.zeros((num_atom, 25), np.float32) 
     # these features are new 
     mass = np.zeros((num_atom, 1), np.float32)
     degree = np.zeros((num_atom, 1), np.uint8)
@@ -236,7 +236,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         # these features seemed to help 
         radius[i] = get_radius(atom.GetSymbol())
         elec_negativity[i] = get_electro_negativity(atom.GetSymbol())
-        yukawa[i] = yukawa_charges[i]
         ###### these features are new #######
         mass[i] = atom.GetMass()
         degree[i] = atom.GetDegree()
@@ -277,7 +276,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
-        node=[symbol, acceptor, donor, aromatic, yukawa, degree,
+        node=[symbol, acceptor, donor, aromatic, degree, #yukawa, 
               hybridization, num_h, atomic, radius, elec_negativity, mass, in_ring],
         edge=[bond_type, distance, angle, conjugated],
         edge_index=edge_index,
