@@ -6,7 +6,7 @@ from collections import defaultdict
 from common import *
 
 from rdkit import Chem, RDConfig
-from rdkit.Chem import AllChem, ChemicalFeatures, rdMolTransforms
+from rdkit.Chem import AllChem, ChemicalFeatures, rdMolTransforms, rdmolfiles, Fragments
 from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
@@ -17,8 +17,7 @@ DrawingOptions.bondLineWidth = 1.8
 
 COUPLING_TYPE_STATS = [
     # type   #mean, std, min, max
-    '1JHC_0',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
-    '1JHC_1',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
+    '1JHC',  94.9761528641869,   18.27722399839607,   66.6008,   204.8800,
     '2JHC',  -0.2706244378832,    4.52360876732858,  -36.2186,    42.8192,
     '3JHC',   3.6884695895355,    3.07090647005439,  -18.5821,    76.0437,
     '1JHN',  47.4798844844683,   10.92204561670947,   24.3222,    80.4187,
@@ -94,8 +93,8 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     #df_structure = pd.concat([structure, yukawa], axis=1)
     df_structure = structure
 
-    df_train = pd.read_csv(DATA_DIR + 'train_1JHC_split.csv')
-    df_test = pd.read_csv(DATA_DIR + 'test_1JHC_split.csv')
+    df_train = pd.read_csv(DATA_DIR + 'train.csv')
+    df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
     if normalize_target:
         types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
@@ -195,10 +194,10 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     factory = ChemicalFeatures.BuildFeatureFactory(os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef'))
     feature = factory.GetFeaturesForMol(mol)
 
-    # ** node **
-    #[ a.GetSymbol() for a in mol.GetAtoms() ]
+    Chem.rdPartialCharges.ComputeGasteigerCharges(mol)
 
     num_atom = mol.GetNumAtoms()
+
     symbol = np.zeros((num_atom, len(SYMBOL)), np.uint8)  # category
     acceptor = np.zeros((num_atom, 1), np.uint8)
     donor = np.zeros((num_atom, 1), np.uint8)
@@ -228,6 +227,9 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     nb_n = np.zeros((num_atom, 1), np.uint8)
     nb_na = np.zeros((num_atom, 1), np.uint8)
 
+    gasteiger_charge = np.zeros((num_atom, 1), np.float32)
+    gasteiger_h_charge = np.zeros((num_atom, 1), np.float32)
+
     for t in range(0, len(feature)):
         if feature[t].GetFamily() == 'Donor':
             for i in feature[t].GetAtomIds():
@@ -249,7 +251,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         mass[i] = atom.GetMass()
         degree[i] = atom.GetDegree()
         valence[i] = atom.GetTotalValence()
-        in_ring[i] = atom.IsInRing()
 
         in_ring[i] = int(atom.IsInRing()) # is the atom in a ring?
         in_ring3[i] = int(atom.IsInRingSize(3)) # is the atom in a ring size of 3?
@@ -265,6 +266,10 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
         nb_c[i] = sum([_ == 'C' for _ in nb]) # number of carbon as neighbor
         nb_n[i] = sum([_ == 'N' for _ in nb]) # number of nitrogen as neighbor
         nb_na[i] = len(nb) - nb_h[i] - nb_o[i] - nb_n[i] - nb_c[i]
+
+        gasteiger_charge[i] = atom.GetProp('_GasteigerCharge')
+        gasteiger_h_charge[i] = atom.GetProp('_GasteigerHCharge')
+
         ######################################
 
     # ** edge **
@@ -295,17 +300,71 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
             angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
             ij += 1
     # -------------------
+    #molecule features:
+    
+    #number_atoms = int(num_atom)
+    #mol2 = Chem.AddHs(mol)
+    #number_atoms_reaction = int(mol2.GetNumAtoms())
+
+    fr_N        = int(Chem.Fragments.fr_ArN(mol))
+    fr_methoxy  = int(Chem.Fragments.fr_methoxy(mol))
+    fr_benzene  = int(Chem.Fragments.fr_benzene(mol))
+    fr_aldehyde = int(Chem.Fragments.fr_aldehyde(mol))
+    fr_Ar_N     = int(Chem.Fragments.fr_Ar_N(mol))
+    fr_Ar_NH    = int(Chem.Fragments.fr_Ar_NH(mol))
+    fr_Ar_OH    = int(Chem.Fragments.fr_Ar_OH(mol))
+    fr_COO      = int(Chem.Fragments.fr_COO(mol))
+    fr_COO2     = int(Chem.Fragments.fr_COO2(mol))
+
+    matches = mol.GetSubstructMatches(mol, uniquify =False)
+    symmetric = int(len(matches) > 1)
+
+    #number_atoms = np.repeat(number_atoms, num_atom)
+    #number_atoms_reaction = np.repeat(number_atoms_reaction, num_atom)
+    fr_N = np.expand_dims(np.repeat(fr_N, num_atom), axis=1)
+    fr_methoxy = np.expand_dims(np.repeat(fr_methoxy, num_atom), axis=1)
+    fr_benzene = np.expand_dims(np.repeat(fr_benzene, num_atom), axis=1)
+    fr_aldehyde = np.expand_dims(np.repeat(fr_aldehyde, num_atom), axis=1)
+    fr_Ar_N = np.expand_dims(np.repeat(fr_Ar_N, num_atom), axis=1)
+    fr_Ar_NH = np.expand_dims(np.repeat(fr_Ar_NH, num_atom), axis=1)
+    fr_Ar_OH = np.expand_dims(np.repeat(fr_Ar_OH, num_atom), axis=1)
+    fr_COO = np.expand_dims(np.repeat(fr_COO, num_atom), axis=1)
+    fr_COO2 = np.expand_dims(np.repeat(fr_COO2, num_atom), axis=1)
+
+    symmetric = np.expand_dims(np.repeat(symmetric, num_edge), axis=1)
+    # -------------------
 
     graph = Struct(
         molecule_name=molecule_name,
         smiles=Chem.MolToSmiles(mol),
         axyz=[a, xyz],
-        node=[symbol, acceptor, donor, aromatic, degree, hybridization, #yukawa,
-              num_h, atomic, radius, elec_negativity, mass, in_ring],
-        edge=[bond_type, distance, angle, conjugated],
+        node=[symbol, acceptor, donor, aromatic, degree, hybridization, atomic, 
+              radius, elec_negativity, mass, gasteiger_charge, gasteiger_h_charge, 
+              in_ring, in_ring3, in_ring4, in_ring5, in_ring6, in_ring7, in_ring8,
+              nb_h, nb_o, nb_c, nb_n, nb_na, fr_N, fr_methoxy, fr_benzene, fr_aldehyde, 
+              fr_Ar_N, fr_Ar_NH, fr_Ar_OH, fr_COO, fr_COO2],
+        edge=[bond_type, distance, angle, conjugated, symmetric],
         edge_index=edge_index,
         coupling=coupling,
     )
+
+    #graph = Struct(
+    #    molecule_name=molecule_name,
+    #    smiles=Chem.MolToSmiles(mol),
+    #    axyz=[a, xyz],
+    #    reaction=[number_atoms, number_atoms_reaction],
+    #    symmetry=symmetric,
+    #    subgroups=[fr_N, fr_methoxy, fr_benzene, fr_aldehyde, fr_Ar_N, fr_Ar_NH,
+    #               fr_Ar_OH, fr_COO, fr_COO2],
+    #    node=[symbol, acceptor, donor, aromatic, degree, hybridization, atomic, 
+    #          radius, elec_negativity, mass, gasteiger_charge, gasteiger_h_charge, 
+    #          in_ring, in_ring3, in_ring4, in_ring5, in_ring6, in_ring7, in_ring8,
+    #          nb_h, nb_o, nb_c, nb_n, nb_na],
+    #    edge=[bond_type, distance, angle, conjugated],
+    #    edge_index=edge_index,
+    #    coupling=coupling,
+    #)
+    
     return graph
 
 
@@ -824,7 +883,6 @@ def run_check_0():
 
 
 def run_check_0a():
-
     gb_structure, gb_scalar_coupling = load_csv()
 
     molecule_name = 'dsgdb9nsd_000001'
@@ -833,6 +891,12 @@ def run_check_0a():
     print(graph)
     print('graph.molecule_name:', graph.molecule_name)
     print('graph.smiles:', graph.smiles)
+
+    print('graph.axyz:', graph.axyz)
+    print('graph.reaction:', graph.reaction)
+    print('graph.symmetry:', graph.symmetry)
+    print('graph.subgroups:', graph.subgroups)
+
     print('graph.node:', np.concatenate(graph.node, -1).shape)
     print('graph.edge:', np.concatenate(graph.edge, -1).shape)
     print('graph.edge_index:', graph.edge_index.shape)
@@ -848,7 +912,8 @@ def run_check_0a():
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
-    coupling_types = ['1JHC_0', '1JHC_1', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
+    coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    #run_make_split(5000, name='1JHC_split_types', graphs='selected_features_1JHC_split', coupling_types=coupling_types)
-    run_convert_to_graph(graph_dir='selected_features_1JHC_split', normalize_target=False, coupling_types=coupling_types)
+    #run_make_split(5000, name='all_the_features_split', graphs='all_the_features', coupling_types=coupling_types)
+    run_convert_to_graph(graph_dir='all_the_features', normalize_target=False, coupling_types=coupling_types)
+    #run_check_0a()

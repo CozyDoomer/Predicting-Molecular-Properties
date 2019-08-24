@@ -189,9 +189,9 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
     log.write('** start training here! **\n')
     log.write('   batch_size =%d,  iter_accum=%d\n' % (batch_size, iter_accum))
-    log.write('                       |--------------- VALID --------------------------------------------------------------------------|- TRAIN/BATCH -\n')
-    log.write('                       |std  %4.1f     %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f   %4.1f  |                    |        | \n' % tuple(COUPLING_TYPE_STD))
-    log.write('lr        iter   epoch |    1JHC_0,  1JHC_1,  2JHC,   3JHC,   1JHN,   2JHN,   3JHN,   2JHH,   3JHH |  loss  mae log_mae | loss   | time          \n')
+    log.write('                       |--------------- VALID ----------------------------------------------------------------|-- TRAIN/BATCH ---------\n')
+    log.write('                       |std %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f    %4.1f   %4.1f  |                    |        | \n' % tuple(COUPLING_TYPE_STD))
+    log.write('lr        iter   epoch |    1JHC,   2JHC,   3JHC,   1JHN,   2JHN,   3JHN,   2JHH,   3JHH |  loss  mae log_mae | loss   | time          \n')
     log.write('--------------------------------------------------------------------------------------------------------------------------------------\n')
 
     train_loss = np.zeros(20, np.float32)
@@ -225,9 +225,9 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
             if (iteration % iter_log == 0):
                 print('\r', end='', flush=True)
                 asterisk = '*' if iteration in iter_save and iteration != checkpoint_iter else ' '
-                log.write('%0.6f  %5.1f%s %5.1f |   %+0.3f,  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f| %+5.3f | %s' % (
+                log.write('%0.6f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
                     lr, iteration/1000, asterisk, epoch,
-                    *valid_loss[:12],
+                    *valid_loss[:11],
                     train_loss[0],
                     time_to_str((timer() - start), 'min'))
                 )
@@ -269,9 +269,9 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 
             print('\r', end='', flush=True)
             asterisk = ' '
-            print('%0.6f  %5.1f%s %5.1f |   %+0.3f,  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f| %+5.3f | %s' % (
+            print('%0.6f  %5.1f%s %5.1f |  %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f, %+0.3f | %+5.3f %5.2f %+0.2f | %+5.3f | %s' % (
                 lr, iteration/1000, asterisk, epoch,
-                *valid_loss[:12],
+                *valid_loss[:11],
                 batch_loss[0],
                 time_to_str((timer() - start), 'min')), end='', flush=True)
             i = i+1
@@ -282,14 +282,14 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/selected_features_1JHC_split'
-    checkpoint_path = get_path() + 'data/results/selected_features_1JHC_split/checkpoint/00350000_model.pth'
+    output_directory = get_path() + 'data/results/all_the_features'
+    checkpoint_path = get_path() + 'data/results/all_the_features/checkpoint/00350000_model.pth'
 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
-    coupling_types = ['1JHC_0', '1JHC_1', '2JHC', '3JHC']
+    coupling_types = ['1JHC', '1JHN']
 
-    run_train(lr=0.0018, loss_func=log_l1_loss, num_iters=400*1000, batch_size=16, coupling_types=coupling_types,
+    run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300*1000, batch_size=16, coupling_types=coupling_types,
               split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy',
-              initial_checkpoint=None, graph_dir='selected_features_1JHC_split', out_dir=output_directory)
+              initial_checkpoint=None, graph_dir='all_the_features', out_dir=output_directory)
 
     print('\nsuccess!')
