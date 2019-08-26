@@ -11,6 +11,8 @@ from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
 
+import openbabel
+
 DrawingOptions.bondLineWidth = 1.8
 
 ## feature extraction #####################################################
@@ -96,6 +98,9 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     df_train = pd.read_csv(DATA_DIR + 'train.csv')
     df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
+    df_angles_train = pd.read_csv(DATA_DIR + 'angles_train.csv')
+    df_angles_test = pd.read_csv(DATA_DIR + 'angles_test.csv')
+
     if normalize_target:
         types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
         types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
@@ -103,6 +108,7 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
         df_test['scalar_coupling_constant'] = 0
 
     df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
+    df_angles = pd.concat([df_angles_train, df_angles_test], sort=False)
 
     if coupling_types is not None:
         df_scalar_coupling = filter_dataframes(df_scalar_coupling, coupling_types=coupling_types)
@@ -122,7 +128,9 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     
     gb_structure = df_structure.groupby('molecule_name')
 
-    return gb_structure, gb_scalar_coupling
+    gb_angles = df_angles.groupby('molecule_name')
+
+    return gb_structure, gb_scalar_coupling, gb_angles
 
 
 def run_convert_to_graph(graph_dir='all_types', normalize_target=False, 
@@ -130,15 +138,20 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
     graph_dir = get_path() + 'data/graphs/' + graph_dir
     os.makedirs(graph_dir, exist_ok=True)
 
-    gb_structure, gb_scalar_coupling = load_csv(normalize_target, coupling_types=coupling_types)
+    gb_structure, gb_scalar_coupling, gb_angles = load_csv(normalize_target, coupling_types=coupling_types)
     molecule_names = list(gb_scalar_coupling.groups.keys())
     molecule_names = np.sort(molecule_names)
 
     param = []
 
+    structdir= get_data_path() + 'structures/'
+    mols_files=os.listdir(structdir)
+    mols_index=dict(map(reversed,enumerate(mols_files)))
+    #print('done generating mols')
+
     for i, molecule_name in enumerate(molecule_names):
         graph_file = graph_dir + '/%s.pickle' % molecule_name
-        p = molecule_name, gb_structure, gb_scalar_coupling, graph_file
+        p = molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index, graph_file
         if i < 2000:
             do_one(p)
         else:
@@ -149,14 +162,14 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
 
 
 def do_one(p):
-    molecule_name, gb_structure, gb_scalar_coupling, graph_file = p
+    molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index, graph_file = p
 
-    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling)
+    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index)
     print(g.molecule_name, g.smiles)
     write_pickle_to_file(graph_file, g)
 
 
-def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
+def make_graph(molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index):
     # https://stackoverflow.com/questions/14734533/how-to-access-pandas-groupby-dataframe-by-key
     # ----
     df = gb_scalar_coupling.get_group(molecule_name)
@@ -174,6 +187,7 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
 
     # ----
     df = gb_structure.get_group(molecule_name)
+    angle_df = gb_angles.get_group(molecule_name)
     
     df = df.sort_values(['atom_index'], ascending=True)
     # ['molecule_name', 'atom_index', 'atom', 'x', 'y', 'z']
@@ -203,7 +217,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     donor = np.zeros((num_atom, 1), np.uint8)
     aromatic = np.zeros((num_atom, 1), np.uint8)
     hybridization = np.zeros((num_atom, len(HYBRIDIZATION)), np.uint8)
-    num_h = np.zeros((num_atom, 1), np.float32)  # real
     atomic = np.zeros((num_atom, 1), np.float32)
 
     # these features seemed to help 
@@ -275,37 +288,66 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
     # ** edge **
     num_edge = num_atom*num_atom - num_atom
     edge_index = np.zeros((num_edge, 2), np.uint8)
-    bond_type = np.zeros((num_edge, len(BOND_TYPE)), np.uint8)  # category
-    distance = np.zeros((num_edge, 3), np.float64) 
-    angle = np.zeros((num_edge, 1), np.float32) 
 
-    #valence_contrib = np.zeros((num_edge, 29), np.uint8) 
-    conjugated = np.zeros((num_edge, 1), np.uint8) 
+    distance = np.zeros((num_edge, 3), np.float32) 
 
-    norm_xyz = preprocessing.normalize(xyz, norm='l2')
+    bond_type_ohe = np.full((num_edge, len(BOND_TYPE)), -1, np.int8)  # category
+    conjugated = np.full((num_edge, 1), -1, np.int8) 
+
+
+    obConversion = openbabel.OBConversion()
+    obConversion.SetInFormat("xyz")
+    mol_ob = openbabel.OBMol()
+    structdir= get_data_path() + 'structures/'
+    obConversion.ReadFile(mol_ob, structdir+molecule_name+'.xyz') 
+
+    sp = np.full((num_edge, 1), -2, np.float32) 
+    angle = np.full((num_edge, 1), -2, np.float32) 
+    torsion = np.full((num_edge, 1), -2, np.float32) 
+    cos_t = np.full((num_edge, 1), -2, np.float32) 
+    cos_2t = np.full((num_edge, 1), -2, np.float32) 
 
     ij = 0
     for i in range(num_atom):
         for j in range(num_atom):
             if i == j:
                 continue
+
             edge_index[ij] = [i, j]
-
             bond = mol.GetBondBetweenAtoms(i, j)
-            if bond is not None:
-                bond_type[ij] = one_hot_encoding(bond.GetBondType(), BOND_TYPE)
-                conjugated[ij] = bond.GetIsConjugated()
-            
-            distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0) 
-            angle[ij] = (norm_xyz[i]*norm_xyz[j]).sum()
-            ij += 1
-    # -------------------
-    #molecule features:
-    
-    #number_atoms = int(num_atom)
-    #mol2 = Chem.AddHs(mol)
-    #number_atoms_reaction = int(mol2.GetNumAtoms())
 
+            if bond is not None:
+                bond_type = bond.GetBondType()
+                bond_type_ohe[ij] = one_hot_encoding(bond_type, BOND_TYPE)
+                conjugated[ij] = bond.GetIsConjugated() 
+
+            _sp = Atoms(molecule_name, i, j, mol_ob)[2].GetHyb()
+            if _sp is not None:
+                sp[ij] = _sp
+
+            _angle = Angle2J(molecule_name, i, j, mol_ob)
+            if _angle is not None:
+                angle[ij] = _angle
+
+            _torsion = Torsion3J(molecule_name, i, j, mol_ob)
+            if _torsion is not None:
+                torsion[ij] = _torsion
+                cos_t[ij] = np.cos(np.deg2rad(torsion[ij]))
+                cos_2t[ij] = np.cos(2*np.deg2rad(torsion[ij]))
+            
+            distance[ij] = np.linalg.norm(xyz[i] - xyz[j], axis=0)
+            ij += 1
+                
+            #match_angle = angle_df[((angle_df.atom_index_0==i) & (angle_df.atom_index_1==j)) | ((angle_df.atom_index_0==j) & (angle_df.atom_index_1==i))]
+            #if len(match_angle) > 0:
+            #    sp[ij] = match_angle.sp.values
+            #    angle[ij] = match_angle.Angle.values
+            #    torsion[ij] = match_angle.Torsion.values
+            #    cos_t[ij] = match_angle.cosT.values
+            #    cos_2t[ij] = match_angle.cos2T.values
+
+    # -------------------
+    #molecule features:          
     fr_N        = int(Chem.Fragments.fr_ArN(mol))
     fr_methoxy  = int(Chem.Fragments.fr_methoxy(mol))
     fr_benzene  = int(Chem.Fragments.fr_benzene(mol))
@@ -343,29 +385,44 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling):
               in_ring, in_ring3, in_ring4, in_ring5, in_ring6, in_ring7, in_ring8,
               nb_h, nb_o, nb_c, nb_n, nb_na, fr_N, fr_methoxy, fr_benzene, fr_aldehyde, 
               fr_Ar_N, fr_Ar_NH, fr_Ar_OH, fr_COO, fr_COO2],
-        edge=[bond_type, distance, angle, conjugated, symmetric],
+        edge=[bond_type_ohe, distance, conjugated, symmetric, sp, angle, torsion, cos_t, cos_2t],
         edge_index=edge_index,
         coupling=coupling,
     )
-
-    #graph = Struct(
-    #    molecule_name=molecule_name,
-    #    smiles=Chem.MolToSmiles(mol),
-    #    axyz=[a, xyz],
-    #    reaction=[number_atoms, number_atoms_reaction],
-    #    symmetry=symmetric,
-    #    subgroups=[fr_N, fr_methoxy, fr_benzene, fr_aldehyde, fr_Ar_N, fr_Ar_NH,
-    #               fr_Ar_OH, fr_COO, fr_COO2],
-    #    node=[symbol, acceptor, donor, aromatic, degree, hybridization, atomic, 
-    #          radius, elec_negativity, mass, gasteiger_charge, gasteiger_h_charge, 
-    #          in_ring, in_ring3, in_ring4, in_ring5, in_ring6, in_ring7, in_ring8,
-    #          nb_h, nb_o, nb_c, nb_n, nb_na],
-    #    edge=[bond_type, distance, angle, conjugated],
-    #    edge_index=edge_index,
-    #    coupling=coupling,
-    #)
     
     return graph
+
+def Atoms(molname,AtomId1,AtomId2,mol):
+    #mol=mols[mols_index[molname+'.xyz']]
+    return mol, mol.GetAtomById(AtomId1), mol.GetAtomById(AtomId2)
+
+def SecondAtom(bond,FirstAtom):
+    if FirstAtom.GetId()==bond.GetBeginAtom().GetId(): return bond.GetEndAtom()
+    else: return bond.GetBeginAtom()
+
+def Angle2J(molname,AtomId1,AtomId2,mol,debug=False):
+    mol,firstAtom,lastAtom=Atoms(molname,AtomId1,AtomId2,mol)
+    if debug: print (mol.GetFormula())
+    if debug: print(firstAtom.GetType(),firstAtom.GetId(),':',lastAtom.GetType(),lastAtom.GetId())
+    for b in openbabel.OBAtomBondIter(firstAtom): # all bonds for first atom
+      secondAtom=SecondAtom(b,firstAtom)
+      lastBond=secondAtom.GetBond(lastAtom)
+      if lastBond: # found!
+        if debug: print('middle',secondAtom.GetId(),secondAtom.GetType())
+        return firstAtom.GetAngle(secondAtom,lastAtom)
+
+def Torsion3J(molname,AtomId1,AtomId2,mol,debug=False):
+    mol,firstAtom,lastAtom=Atoms(molname,AtomId1,AtomId2,mol)
+    if debug: print (molname, mol.GetFormula())
+    if debug: print(firstAtom.GetType(),firstAtom.GetId(),':',lastAtom.GetType(),lastAtom.GetId())
+    for b in openbabel.OBAtomBondIter(firstAtom): # all bonds for first atom
+        secondAtom=SecondAtom(b,firstAtom)
+        for b2 in openbabel.OBAtomBondIter(secondAtom): # all bonds for second atom 
+            thirdAtom=SecondAtom(b2,secondAtom)
+            lastBond=thirdAtom.GetBond(lastAtom)
+            if lastBond: # found!
+                if debug: print(secondAtom.GetType(),secondAtom.GetId(),'<->',thirdAtom.GetType(),thirdAtom.GetId())
+                return mol.GetTorsion(firstAtom,secondAtom,thirdAtom,lastAtom)
 
 
 ## xyz to mol #############################################################
@@ -914,6 +971,6 @@ if __name__ == '__main__':
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    #run_make_split(5000, name='all_the_features_split', graphs='all_the_features', coupling_types=coupling_types)
-    run_convert_to_graph(graph_dir='all_the_features', normalize_target=False, coupling_types=coupling_types)
+    #run_make_split(5000, name='new_angles', graphs='all_the_features', coupling_types=coupling_types)
+    run_convert_to_graph(graph_dir='new_angles', normalize_target=False, coupling_types=coupling_types)
     #run_check_0a()
