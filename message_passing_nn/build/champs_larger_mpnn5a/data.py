@@ -98,8 +98,8 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     df_train = pd.read_csv(DATA_DIR + 'train.csv')
     df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
-    df_angles_train = pd.read_csv(DATA_DIR + 'angles_train.csv')
-    df_angles_test = pd.read_csv(DATA_DIR + 'angles_test.csv')
+    #df_angles_train = pd.read_csv(DATA_DIR + 'angles_train.csv')
+    #df_angles_test = pd.read_csv(DATA_DIR + 'angles_test.csv')
 
     if normalize_target:
         types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
@@ -108,7 +108,7 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
         df_test['scalar_coupling_constant'] = 0
 
     df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
-    df_angles = pd.concat([df_angles_train, df_angles_test], sort=False)
+    #df_angles = pd.concat([df_angles_train, df_angles_test], sort=False)
 
     if coupling_types is not None:
         df_scalar_coupling = filter_dataframes(df_scalar_coupling, coupling_types=coupling_types)
@@ -128,9 +128,9 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     
     gb_structure = df_structure.groupby('molecule_name')
 
-    gb_angles = df_angles.groupby('molecule_name')
+    #gb_angles = df_angles.groupby('molecule_name')
 
-    return gb_structure, gb_scalar_coupling, gb_angles
+    return gb_structure, gb_scalar_coupling
 
 
 def run_convert_to_graph(graph_dir='all_types', normalize_target=False, 
@@ -138,7 +138,7 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
     graph_dir = get_path() + 'data/graphs/' + graph_dir
     os.makedirs(graph_dir, exist_ok=True)
 
-    gb_structure, gb_scalar_coupling, gb_angles = load_csv(normalize_target, coupling_types=coupling_types)
+    gb_structure, gb_scalar_coupling = load_csv(normalize_target, coupling_types=coupling_types)
     molecule_names = list(gb_scalar_coupling.groups.keys())
     molecule_names = np.sort(molecule_names)
 
@@ -151,7 +151,7 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
 
     for i, molecule_name in enumerate(molecule_names):
         graph_file = graph_dir + '/%s.pickle' % molecule_name
-        p = molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index, graph_file
+        p = molecule_name, gb_structure, gb_scalar_coupling, mols_index, graph_file
         if i < 2000:
             do_one(p)
         else:
@@ -162,14 +162,14 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
 
 
 def do_one(p):
-    molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index, graph_file = p
+    molecule_name, gb_structure, gb_scalar_coupling, mols_index, graph_file = p
 
-    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index)
+    g = make_graph(molecule_name, gb_structure, gb_scalar_coupling, mols_index)
     print(g.molecule_name, g.smiles)
     write_pickle_to_file(graph_file, g)
 
 
-def make_graph(molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_index):
+def make_graph(molecule_name, gb_structure, gb_scalar_coupling, mols_index):
     # https://stackoverflow.com/questions/14734533/how-to-access-pandas-groupby-dataframe-by-key
     # ----
     df = gb_scalar_coupling.get_group(molecule_name)
@@ -187,7 +187,6 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling, gb_angles, mols_
 
     # ----
     df = gb_structure.get_group(molecule_name)
-    angle_df = gb_angles.get_group(molecule_name)
     
     df = df.sort_values(['atom_index'], ascending=True)
     # ['molecule_name', 'atom_index', 'atom', 'x', 'y', 'z']
