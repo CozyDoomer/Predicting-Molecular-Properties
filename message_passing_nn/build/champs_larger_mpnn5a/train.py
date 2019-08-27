@@ -89,7 +89,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     log.write('** dataset setting **\n')
 
     train_dataset = ChampsDataset(
-        csv='train',
+        csv='train_pseudo',
         mode='train',
         split=split_train,
         coupling_types=coupling_types,
@@ -107,7 +107,7 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
     )
 
     valid_dataset = ChampsDataset(
-        csv='train',
+        csv='train_pseudo',
         mode='train',
         # split='debug_split_by_mol.1000.npy',
         split=split_valid,
@@ -282,14 +282,14 @@ def run_train(lr=0.001, loss_func=log_l1_loss, num_iters=300000, batch_size=20, 
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
 
-    output_directory = get_path() + 'data/results/new_angles'
-    checkpoint_path = get_path() + 'data/results/new_angles/checkpoint/00175000_model.pth'
+    output_directory = get_path() + 'data/results/pseudo_labeling'
+    checkpoint_path = get_path() + 'data/results/pseudo_labeling/checkpoint/00160000_model.pth'
 
     #'1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH'
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_train(lr=0.002, loss_func=log_l1_loss, num_iters=500*1000, batch_size=15, coupling_types=coupling_types,
-              split_train='train_split_by_mol.80003.npy', split_valid='valid_split_by_mol.5000.npy',
-              initial_checkpoint=None, graph_dir='new_angles', out_dir=output_directory)
+    run_train(lr=0.002, loss_func=log_l1_loss, num_iters=200*1000, batch_size=30, coupling_types=coupling_types,
+              split_train='train_split_pseudo_labeling.125775.npy', split_valid='valid_split_pseudo_labeling.5000.npy',
+              initial_checkpoint=None, graph_dir='pseudo_labeling', out_dir=output_directory)
 
     print('\nsuccess!')

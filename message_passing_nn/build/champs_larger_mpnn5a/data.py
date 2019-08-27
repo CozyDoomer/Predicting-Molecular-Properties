@@ -11,8 +11,6 @@ from rdkit.Chem.rdmolops import SanitizeFlags
 import rdkit.Chem.Draw
 from rdkit.Chem.Draw.MolDrawing import MolDrawing, DrawingOptions
 
-import openbabel
-
 DrawingOptions.bondLineWidth = 1.8
 
 ## feature extraction #####################################################
@@ -95,19 +93,20 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     #df_structure = pd.concat([structure, yukawa], axis=1)
     df_structure = structure
 
-    df_train = pd.read_csv(DATA_DIR + 'train.csv')
-    df_test = pd.read_csv(DATA_DIR + 'test.csv')
+    df_scalar_coupling = pd.read_csv(DATA_DIR + 'train_pseudo.csv')
+    #df_test = pd.read_csv(DATA_DIR + 'test.csv')
 
     #df_angles_train = pd.read_csv(DATA_DIR + 'angles_train.csv')
     #df_angles_test = pd.read_csv(DATA_DIR + 'angles_test.csv')
 
-    if normalize_target:
-        types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
-        types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
-        df_train['scalar_coupling_constant'] = (df_train['scalar_coupling_constant'] - types_mean) / types_std
-        df_test['scalar_coupling_constant'] = 0
+    #if normalize_target:
+        #types_mean = [COUPLING_TYPE_MEAN[COUPLING_TYPE.index(t)] for t in df_train.type.values]
+        #types_std = [COUPLING_TYPE_STD[COUPLING_TYPE.index(t)] for t in df_train.type.values]
+        #df_train['scalar_coupling_constant'] = (df_train['scalar_coupling_constant'] - types_mean) / types_std
+        #df_test['scalar_coupling_constant'] = 0
 
-    df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
+    #df_scalar_coupling = pd.concat([df_train, df_test], sort=False)
+    
     #df_angles = pd.concat([df_angles_train, df_angles_test], sort=False)
 
     if coupling_types is not None:
@@ -125,7 +124,7 @@ def load_csv(normalize_target=False, coupling_types=['1JHC', '2JHC', '3JHC', '1J
     #df_structure = pd.merge(df_structure, df, how='left', on='molecule_name')
 
     gb_scalar_coupling = df_scalar_coupling.groupby('molecule_name')
-    
+
     gb_structure = df_structure.groupby('molecule_name')
 
     #gb_angles = df_angles.groupby('molecule_name')
@@ -147,7 +146,6 @@ def run_convert_to_graph(graph_dir='all_types', normalize_target=False,
     structdir= get_data_path() + 'structures/'
     mols_files=os.listdir(structdir)
     mols_index=dict(map(reversed,enumerate(mols_files)))
-    #print('done generating mols')
 
     for i, molecule_name in enumerate(molecule_names):
         graph_file = graph_dir + '/%s.pickle' % molecule_name
@@ -885,7 +883,7 @@ def mol_from_axyz(symbol, xyz):
 
 def run_make_split(num_valid, name='by_mol', graphs='all_types', coupling_types=None):
     split_dir = get_path() + 'data/split/'
-    csv_file = get_data_path() + 'train_1JHC_split.csv'
+    csv_file = get_data_path() + 'train_pseudo.csv'
     os.makedirs(split_dir, exist_ok=True)
 
     df = pd.read_csv(csv_file)
@@ -970,6 +968,6 @@ if __name__ == '__main__':
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    #run_make_split(5000, name='new_angles', graphs='all_the_features', coupling_types=coupling_types)
-    run_convert_to_graph(graph_dir='new_angles', normalize_target=False, coupling_types=coupling_types)
+    run_convert_to_graph(graph_dir='pseudo_labeling', normalize_target=False, coupling_types=coupling_types)
+    run_make_split(5000, name='pseudo_labeling', graphs='pseudo_labeling', coupling_types=coupling_types)
     #run_check_0a()

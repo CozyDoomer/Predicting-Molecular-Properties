@@ -44,7 +44,7 @@ def run_submit(loss_func=log_l1_loss, graph_dir='all_types', out_dir='data/submi
 
     # dataset ----------------------------------------------------
     log.write('** dataset setting **\n')
-    batch_size = 16  # *2 #280*2 #256*4 #128 #256 #512  #16 #32
+    batch_size = 30  # *2 #280*2 #256*4 #128 #256 #512  #16 #32
 
     #-------------------------------------------------------------
     if validation:
@@ -199,10 +199,10 @@ def run_submit(loss_func=log_l1_loss, graph_dir='all_types', out_dir='data/submi
 # main #################################################################
 if __name__ == '__main__':
     print('%s: calling main function ... ' % os.path.basename(__file__))
-    initial_checkpoint = 'data/results/all_types_new_features/checkpoint/00055000_model.pth'
-    out_dir='data/submission/all_types_new_features'
+    initial_checkpoint = 'data/results/pseudo_labeling/checkpoint/00055000_model.pth'
+    out_dir='data/submission/pseudo_labeling'
 
-    run_submit(loss_func=log_l1_loss, graph_dir='all_types_new_features', out_dir=out_dir,
-               initial_checkpoint=initial_checkpoint, validation=True)
+    run_submit(loss_func=log_l1_loss, graph_dir='pseudo_labeling', out_dir=out_dir,
+               initial_checkpoint=initial_checkpoint, validation=False)
     
     print('\nsuccess!')
