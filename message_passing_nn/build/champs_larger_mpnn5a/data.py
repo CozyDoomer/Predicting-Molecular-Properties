@@ -375,13 +375,13 @@ def make_graph(molecule_name, gb_structure, gb_scalar_coupling, mols_index):
 
     graph = Struct(
         molecule_name=molecule_name,
-        smiles=Chem.MolToSmiles(mol),
+        smiles=Chem.MolToSmiles(mol, allBondsExplicit=True, allHsExplicit=True),
         axyz=[a, xyz],
         node=[symbol, acceptor, donor, aromatic, degree, hybridization, atomic, 
               radius, elec_negativity, mass, gasteiger_charge, gasteiger_h_charge, 
               in_ring, in_ring3, in_ring4, in_ring5, in_ring6, in_ring7, in_ring8,
               nb_h, nb_o, nb_c, nb_n, nb_na, fr_N, fr_methoxy, fr_benzene, fr_aldehyde, 
-              fr_Ar_N, fr_Ar_NH, fr_Ar_OH, fr_COO, fr_COO2],
+              fr_Ar_N, fr_Ar_NH, fr_Ar_OH, fr_COO, fr_COO2, valence],
         edge=[bond_type_ohe, distance, conjugated, symmetric, sp, angle, torsion, cos_t, cos_2t],
         edge_index=edge_index,
         coupling=coupling,
