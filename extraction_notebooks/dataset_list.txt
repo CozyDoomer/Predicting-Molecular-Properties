@@ -1,2 +1,0 @@
-https://www.kaggle.com/educatedguessing/molecules-structure-acsf
-https://www.kaggle.com/asauve/predicting-molecular-properties-bonds
