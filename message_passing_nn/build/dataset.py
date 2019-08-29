@@ -18,8 +18,8 @@ ACSF_GENERATOR = ACSF(
     g4_params = [[1, 5, 1], [0.1, 5, 1], [0.01, 5, 1], [1, 5, -1], [0.1, 5, -1], [0.01, 5, -1]],
 )
 
-EDGE_DIM =   9   #  7 8 9 6 11 38
-NODE_DIM = 168   # 120 13 93 123
+EDGE_DIM =  14   #  7 8 9 6 11 38
+NODE_DIM = 165   # 120 13 93 123
 NUM_TARGET = 8
 
 
@@ -73,6 +73,7 @@ class ChampsDataset(Dataset):
         acsf = ACSF_GENERATOR.create(atom)
         
         graph.node += [acsf, ]
+        
         graph.node = np.concatenate(graph.node, -1)
         graph.edge = np.concatenate(graph.edge, -1)
         return graph
