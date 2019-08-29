@@ -968,6 +968,6 @@ if __name__ == '__main__':
     #1JHC, 2JHC, 3JHC, 1JHN, 2JHN, 3JHN, 2JHH, 3JHH
     coupling_types = ['1JHC', '2JHC', '3JHC', '1JHN', '2JHN', '3JHN', '2JHH', '3JHH']
 
-    run_convert_to_graph(graph_dir='pseudo_labeling', normalize_target=False, coupling_types=coupling_types)
-    run_make_split(5000, name='pseudo_labeling', graphs='pseudo_labeling', coupling_types=coupling_types)
+    #run_convert_to_graph(graph_dir='pseudo_labeling', normalize_target=False, coupling_types=coupling_types)
+    #run_make_split(0, name='pseudo_labeling', graphs='pseudo_labeling', coupling_types=coupling_types)
     #run_check_0a()
