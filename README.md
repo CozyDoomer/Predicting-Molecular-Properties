@@ -9,7 +9,7 @@ In this competition, you will develop an algorithm that can predict the magnetic
 |----------|:-------------:|------:|
 | structured data (__graph based__) | log mean average error | regression |
 
-Solved using lightgbm and a [message passing neural network](https://arxiv.org/pdf/1704.01212.pdf)
+Solved using [lightgbm](https://github.com/microsoft/LightGBM) and a [message passing neural network](https://arxiv.org/pdf/1704.01212.pdf).
 
 ## Notes
 
