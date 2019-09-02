@@ -9,7 +9,7 @@ In this competition, you will develop an algorithm that can predict the magnetic
 |----------|:-------------:|------:|
 | structured data (__graph based__) | log mean average error | regression |
 
-Solved using [lightgbm](https://github.com/microsoft/LightGBM) and a [message passing neural network](https://arxiv.org/pdf/1704.01212.pdf).
+Started working on this competition using [lightgbm](https://github.com/microsoft/LightGBM) and then used a modified implementation of a [message passing neural network](https://arxiv.org/pdf/1704.01212.pdf).
 
 ## Notes
 
@@ -18,6 +18,20 @@ A lot of additional data that is not usable directly because it's not contained 
 Domain knowledge about atom interaction in molecules was really important (to a certain degree).
 
 Most of the features were calculated using [rdkit](https://www.rdkit.org/docs/GettingStartedInPython.html) and [openbabel](http://openbabel.org/docs/current/UseTheLibrary/Python.html).
+
+### local cross validation for message passing neural network
+
+#### Per coupling type:
+- 1JHC: -1.371
+- 2JHC: -2.229
+- 3JHC: -1.975
+- 1JHN: -1.538
+- 2JHN: -2.504
+- 3JHN: -2.517
+- 2JHH: -2.501
+- 3JHH: -2.383 
+
+average local log mae: -2.12
 
 ## Score 
 __top 2%__
