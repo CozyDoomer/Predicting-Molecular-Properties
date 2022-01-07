@@ -1,6 +1,8 @@
 # Predicting Molecular Properties
 
-Kaggle competition: https://www.kaggle.com/c/champs-scalar-coupling
+[Kaggle competition link](https://www.kaggle.com/c/champs-scalar-coupling)
+
+[Solution writeup](https://www.kaggle.com/c/champs-scalar-coupling/discussion/106263)
 
 In this competition, you will develop an algorithm that can predict the magnetic interaction between two atoms in a molecule 
 (i.e., the scalar coupling constant).
