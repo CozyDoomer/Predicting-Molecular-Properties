@@ -19,7 +19,7 @@ Domain knowledge about atom interaction in molecules was really important (to a 
 
 Most of the features were calculated using [rdkit](https://www.rdkit.org/docs/GettingStartedInPython.html) and [openbabel](http://openbabel.org/docs/current/UseTheLibrary/Python.html).
 
-### local cross validation for message passing neural network
+### local validation for message passing neural network
 
 #### Per coupling type:
 - 1JHC: -1.371
@@ -33,7 +33,7 @@ Most of the features were calculated using [rdkit](https://www.rdkit.org/docs/Ge
 
 average local log mae: -2.12
 
-## Score 
+## Placement
 __top 2%__
 
 | leaderboard   | score | placement |
